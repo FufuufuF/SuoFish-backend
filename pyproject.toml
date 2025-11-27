@@ -8,8 +8,11 @@ dependencies = [
     "bcrypt>=5.0.0",
     "cryptography>=46.0.3",
     "fastapi>=0.121.3",
+    "langchain>=1.1.0",
+    "langchain-openai>=1.1.0",
     "pymysql>=1.1.2",
     "python-dotenv>=1.2.1",
+    "python-jose>=3.5.0",
     "sqlalchemy>=2.0.44",
     "uvicorn>=0.38.0",
 ]
