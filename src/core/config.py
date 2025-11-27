@@ -20,3 +20,8 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost
 CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
 CORS_ALLOW_METHODS = os.getenv("CORS_ALLOW_METHODS", "*").split(",")
 CORS_ALLOW_HEADERS = os.getenv("CORS_ALLOW_HEADERS", "*").split(",")
+
+# LLM configuration
+QWEN_API_KEY = os.getenv("DASHSCOPE_API_KEY")
+QWEN_URL_BASE = os.getenv("QWEN_BASE_URL")
+QWEN_MODEL_NAME = os.getenv("QWEN_MODEL_NAME")

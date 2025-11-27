@@ -7,7 +7,6 @@ def get_db():
     - 在请求完成后关闭数据库会话（无论成功或失败）
     """
     db = SessionLocal()
-    print("get_db")
     try:
         yield db
     finally:
