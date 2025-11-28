@@ -1,8 +1,12 @@
+import json
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from src.shcemas.llm_config import MessageMetadata
-from src.shcemas.api_response import APIResponse
+from src.curd.message import create_messages_batch
+from src.curd.conversation import create_conversation
+from src.db.models.conversation import Conversation
+from src.db.models.message import Message
+from src.shcemas.llm_config import ChatMetadata
 from src.llm.llm_service import LLMService
 from src.shcemas.chat import Chat
 from src.utils.authentic import get_current_user
@@ -19,13 +23,42 @@ async def chat(
 ):
     async def generate():
         llm_service = LLMService()
-        async for token in llm_service.generate_chat_response(chat.user_message):
-            yield f'{{"token": "{token}"}}\n'
+        llm_message = Message(role='llm', content='')
+        conversation_id = chat.conversation_id if chat.conversation_id else None
         
-        metadata_json = MessageMetadata(
-            llm_message_id='0',
-            user_message_id='0',
-        )
-        yield f'{{"metadata": {metadata_json.json()}}}\n'
+        try:
+            # 流式生成响应
+            async for token in llm_service.generate_chat_response(chat.user_message):
+                llm_message.content += token
+                # 使用 json.dumps 正确转义特殊字符
+                yield f'{{"token": {json.dumps(token)}}}\n'
+        except Exception as e:
+            # LLM异常时也要保存已生成的内容
+            yield f'{{"error": {json.dumps(str(e))}}}\n'
+        finally:
+            # 确保无论如何都保存数据（即使客户端断开或发生异常）
+            try:
+                # 如果session_id为空，则创建一个新的session
+                if not conversation_id:
+                    conversation = Conversation(user_id=user_id, name=llm_message.content[:50] if llm_message.content else "New Chat")
+                    session = create_conversation(db, session)
+                    conversation_id = conversation.id
+
+                # 用户消息
+                user_message = Message(role='user', content=chat.user_message, conversation_id=session_id)
+                # LLM消息（即使为空也保存）
+                llm_message.conversation_id = conversation_id
+
+                user_message, llm_message = create_message_batch(db, [user_message, llm_message])
+                
+                metadata_json = ChatMetadata(
+                    llm_message_id=llm_message.message_id,
+                    user_message_id=user_message.message_id,
+                    conversation_id=conversation_id,
+                )
+                yield f'{{"metadata": {metadata_json.json()}}}\n'
+            except Exception as save_error:
+                # 保存失败也要记录，但不影响流式响应
+                yield f'{{"save_error": {json.dumps(str(save_error))}}}\n'
     
     return StreamingResponse(generate(), media_type="application/x-ndjson")

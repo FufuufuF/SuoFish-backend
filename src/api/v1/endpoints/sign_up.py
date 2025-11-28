@@ -17,6 +17,6 @@ async def sign_up(sign_up: SignUp, db: Session = Depends(get_db)):
     if user:
         return APIResponse(retcode=400, message="Email already registered")
     sign_up.password = bcrypt.hashpw(sign_up.password.encode('utf-8'), bcrypt.gensalt())
-    user = User(**sign_up.model_dump())
+    user = Users(**sign_up.model_dump())
     create_user(db, user)
     return APIResponse(retcode=0, message="success")

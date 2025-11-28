@@ -33,4 +33,4 @@ async def sign_in(sign_in: SignIn, response: Response, db: Session = Depends(get
         secure=False,   # 生产环境应设置为 True（需要 HTTPS）
         samesite="lax", # 建议添加 samesite 防止 CSRF 攻击
     )
-    return APIResponse(retcode=0, message="success", data={"user_id": str(user.id)})
+    return APIResponse(retcode=0, message="success", data={"user_id": str(user.user_id)})

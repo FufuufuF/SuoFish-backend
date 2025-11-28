@@ -5,7 +5,8 @@ class LLMConfig(BaseModel):
     base_url: str
     model_name: str
 
-class MessageMetadata(BaseModel):
+class ChatMetadata(BaseModel):
     llm_message_id: str
     user_message_id: str
+    conversation_id: str
     
