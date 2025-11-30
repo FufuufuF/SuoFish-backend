@@ -6,7 +6,7 @@ class LLMConfig(BaseModel):
     model_name: str
 
 class ChatMetadata(BaseModel):
-    llm_message_id: str
-    user_message_id: str
-    conversation_id: str
+    llm_message_id: int
+    user_message_id: int
+    conversation_id: int
     

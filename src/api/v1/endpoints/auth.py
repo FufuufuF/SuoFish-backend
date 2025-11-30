@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends
 
 from src.shcemas.api_response import APIResponse
 from src.utils.authentic import get_current_user
@@ -6,10 +6,10 @@ from src.utils.authentic import get_current_user
 router = APIRouter()
 
 @router.get("/")
-def auth(request: Request):
+def auth(user_id: str = Depends(get_current_user)):
     try:
         # 使用 get_current_user 验证 token
-        user_id = get_current_user(request)
+        print(user_id)
         
         # 如果返回的是字典（错误情况），说明 token 无效
         if isinstance(user_id, dict):

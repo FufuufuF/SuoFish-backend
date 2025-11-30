@@ -18,13 +18,25 @@ router = APIRouter()
 @router.post("/")
 async def chat(
     chat: Chat,
-    user_id: str = Depends(get_current_user),
+    user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     async def generate():
         llm_service = LLMService()
-        llm_message = Message(role='llm', content='')
+        llm_message = Message(role='assistant', content='')
         conversation_id = chat.conversation_id if chat.conversation_id else None
+        
+        # 验证会话是否存在
+        if conversation_id:
+            from src.curd.conversation import get_conversation_by_id
+            existing_conversation = get_conversation_by_id(db, conversation_id)
+            if not existing_conversation:
+                yield f'{{"error": {json.dumps(f"Conversation {conversation_id} not found")}}}\n'
+                return
+            # 验证会话是否属于当前用户
+            if str(existing_conversation.user_id) != user_id:
+                yield f'{{"error": {json.dumps("Unauthorized access to conversation")}}}\n'
+                return
         
         try:
             # 流式生成响应
@@ -38,25 +50,24 @@ async def chat(
         finally:
             # 确保无论如何都保存数据（即使客户端断开或发生异常）
             try:
-                # 如果session_id为空，则创建一个新的session
                 if not conversation_id:
                     conversation = Conversation(user_id=user_id, name=llm_message.content[:50] if llm_message.content else "New Chat")
-                    session = create_conversation(db, session)
+                    conversation = create_conversation(db, conversation)
                     conversation_id = conversation.id
 
                 # 用户消息
-                user_message = Message(role='user', content=chat.user_message, conversation_id=session_id)
+                user_message = Message(role='user', content=chat.user_message, conversation_id=conversation_id)
                 # LLM消息（即使为空也保存）
                 llm_message.conversation_id = conversation_id
 
-                user_message, llm_message = create_message_batch(db, [user_message, llm_message])
+                user_message, llm_message = create_messages_batch(db, [user_message, llm_message])
                 
                 metadata_json = ChatMetadata(
-                    llm_message_id=llm_message.message_id,
-                    user_message_id=user_message.message_id,
+                    llm_message_id=llm_message.id,
+                    user_message_id=user_message.id,
                     conversation_id=conversation_id,
                 )
-                yield f'{{"metadata": {metadata_json.json()}}}\n'
+                yield f'{{"metadata": {metadata_json.model_dump_json()}}}\n'
             except Exception as save_error:
                 # 保存失败也要记录，但不影响流式响应
                 yield f'{{"save_error": {json.dumps(str(save_error))}}}\n'
