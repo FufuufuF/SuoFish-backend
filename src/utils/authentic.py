@@ -33,7 +33,7 @@ def get_current_user(request: Request):
                 'data': None,
             }
         
-        return user_id
+        return int(user_id)
     except jwt.ExpiredSignatureError:
         return {
             'retcode': 401,

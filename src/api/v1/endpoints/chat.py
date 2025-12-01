@@ -34,7 +34,10 @@ async def chat(
                 yield f'{{"error": {json.dumps(f"Conversation {conversation_id} not found")}}}\n'
                 return
             # 验证会话是否属于当前用户
-            if str(existing_conversation.user_id) != user_id:
+            if existing_conversation.user_id != user_id:
+                print('existing_conversation.user_id: ', existing_conversation.user_id)
+                print('user_id: ', user_id)
+                print('bool: ', existing_conversation.user_id != user_id)
                 yield f'{{"error": {json.dumps("Unauthorized access to conversation")}}}\n'
                 return
         
