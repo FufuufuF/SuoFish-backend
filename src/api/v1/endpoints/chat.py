@@ -54,6 +54,9 @@ async def chat(
                     conversation = Conversation(user_id=user_id, name=llm_message.content[:50] if llm_message.content else "New Chat")
                     conversation = create_conversation(db, conversation)
                     conversation_id = conversation.id
+                else:
+                    # 使用已存在的会话
+                    conversation = existing_conversation
 
                 # 用户消息
                 user_message = Message(role='user', content=chat.user_message, conversation_id=conversation_id)
