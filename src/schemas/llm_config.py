@@ -12,4 +12,4 @@ class ChatMetadata(BaseModel):
     conversation_name: str
     created_at: int
     updated_at: int
-    
+

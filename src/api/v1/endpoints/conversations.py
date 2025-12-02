@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from src.curd.conversation import get_conversation_by_id, get_conversations_by_user_id, delete_conversation_by_id
+from src.crud.conversation import get_conversation_by_id, get_conversations_by_user_id, delete_conversation_by_id
 from src.utils.authentic import get_current_user
 from src.api.deps import get_db
-from src.shcemas.api_response import APIResponse
-from src.shcemas.chat import ConversationResponse
+from src.schemas.api_response import APIResponse
+from src.schemas.chat import ConversationResponse
 
 router = APIRouter()
 

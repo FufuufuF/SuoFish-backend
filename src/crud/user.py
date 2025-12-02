@@ -22,3 +22,4 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
 def get_user_hash_password(db: Session, email: str) -> Optional[str]:
     user = get_user_by_email(db, email)
     return user.password if user else None
+

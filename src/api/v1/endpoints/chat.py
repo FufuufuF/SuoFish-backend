@@ -2,13 +2,13 @@ import json
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from src.curd.message import create_messages_batch
-from src.curd.conversation import create_conversation
+from src.crud.message import create_messages_batch
+from src.crud.conversation import create_conversation
 from src.db.models.conversation import Conversation
 from src.db.models.message import Message
-from src.shcemas.llm_config import ChatMetadata
+from src.schemas.llm_config import ChatMetadata
 from src.llm.llm_service import LLMService
-from src.shcemas.chat import Chat
+from src.schemas.chat import Chat
 from src.utils.authentic import get_current_user
 from src.api.deps import get_db
 from sqlalchemy.orm import Session
@@ -28,7 +28,7 @@ async def chat(
         
         # 验证会话是否存在
         if conversation_id:
-            from src.curd.conversation import get_conversation_by_id
+            from src.crud.conversation import get_conversation_by_id
             existing_conversation = get_conversation_by_id(db, conversation_id)
             if not existing_conversation:
                 yield f'{{"error": {json.dumps(f"Conversation {conversation_id} not found")}}}\n'

@@ -5,3 +5,4 @@ class APIResponse(BaseModel):
     retcode: int
     message: str
     data: Optional[Any] = None
+

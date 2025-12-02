@@ -25,3 +25,4 @@ class MessageResponse(BaseModel):
     model_config = {
         "from_attributes": True  # 允许从 SQLAlchemy 模型创建
     }
+

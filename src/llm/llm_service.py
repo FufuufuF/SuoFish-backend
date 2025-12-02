@@ -2,7 +2,7 @@ from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
 
 from src.core.config import QWEN_API_KEY, QWEN_URL_BASE, QWEN_MODEL_NAME
-from src.shcemas.llm_config import LLMConfig
+from src.schemas.llm_config import LLMConfig
 
 class LLMService:
     def __init__(self, config: LLMConfig = LLMConfig(api_key=QWEN_API_KEY, base_url=QWEN_URL_BASE, model_name=QWEN_MODEL_NAME)):
