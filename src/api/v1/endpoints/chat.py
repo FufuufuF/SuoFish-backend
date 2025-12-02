@@ -35,9 +35,6 @@ async def chat(
                 return
             # 验证会话是否属于当前用户
             if existing_conversation.user_id != user_id:
-                print('existing_conversation.user_id: ', existing_conversation.user_id)
-                print('user_id: ', user_id)
-                print('bool: ', existing_conversation.user_id != user_id)
                 yield f'{{"error": {json.dumps("Unauthorized access to conversation")}}}\n'
                 return
         
@@ -69,6 +66,9 @@ async def chat(
                     llm_message_id=llm_message.id,
                     user_message_id=user_message.id,
                     conversation_id=conversation_id,
+                    conversation_name=conversation.name,
+                    created_at=int(conversation.created_at.timestamp() * 1000),
+                    updated_at=int(conversation.updated_at.timestamp() * 1000),
                 )
                 yield f'{{"metadata": {metadata_json.model_dump_json()}}}\n'
             except Exception as save_error:

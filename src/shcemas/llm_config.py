@@ -9,4 +9,7 @@ class ChatMetadata(BaseModel):
     llm_message_id: int
     user_message_id: int
     conversation_id: int
+    conversation_name: str
+    created_at: int
+    updated_at: int
     

@@ -30,7 +30,7 @@ def update_conversation_name(db: Session, conversation_id: int, name: str) -> Op
     return conversation
 
 
-def delete_conversation(db: Session, conversation_id: int) -> bool:
+def delete_conversation_by_id(db: Session, conversation_id: int) -> bool:
     conversation = get_conversation_by_id(db, conversation_id)
     if conversation:
         db.delete(conversation)
