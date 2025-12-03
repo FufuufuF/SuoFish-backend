@@ -38,3 +38,12 @@ def delete_conversation_by_id(db: Session, conversation_id: int) -> bool:
         return True
     return False
 
+
+def update_conversation_summary(db: Session, conversation_id: int, summary: str) -> Optional[Conversation]:
+    conversation = get_conversation_by_id(db, conversation_id)
+    if conversation:
+        conversation.summary = summary
+        db.commit()
+        db.refresh(conversation)
+    return conversation
+
