@@ -18,4 +18,5 @@ class Conversation(Base):
     # 关联关系
     user = relationship("User", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation", order_by="Message.created_at", cascade="all, delete-orphan")
+    files = relationship("ConversationFile", back_populates="conversation", cascade="all, delete-orphan")
 

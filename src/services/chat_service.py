@@ -2,6 +2,7 @@ import json
 import asyncio
 from typing import AsyncGenerator, Optional
 
+from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from src.crud.message import (
@@ -19,6 +20,7 @@ from src.db.models.conversation import Conversation
 from src.db.models.message import Message
 from src.schemas.llm_config import ChatMetadata
 from src.llm.llm_service import LLMService
+from src.services.file_service import FileService
 from src.api.deps import get_db_context
 
 MAX_CHAT_ROUND = 20  # 保留最近 K 轮对话
@@ -31,6 +33,7 @@ class ChatService:
     def __init__(self, db: Session):
         self.db = db
         self.llm_service = LLMService()
+        self.file_service = FileService(db)
     
     async def trigger_summary_generation(self, conversation_id: int):
         """后台任务：生成对话摘要并保存"""
@@ -106,7 +109,8 @@ class ChatService:
         self, 
         user_message: str,
         user_id: int,
-        conversation_id: Optional[int] = None
+        conversation_id: Optional[int] = None,
+        files: Optional[list[UploadFile]] = None
     ) -> AsyncGenerator[str, None]:
         """
         处理聊天请求的完整流程
@@ -116,6 +120,7 @@ class ChatService:
         - {"error": "..."} - 错误信息
         - {"metadata": {...}} - 完成后的元数据
         - {"save_error": "..."} - 保存时的错误
+        - {"files": {...}} - 文件上传结果
         """
         llm_response_content = ''
         existing_conversation = None
@@ -130,6 +135,30 @@ class ChatService:
             summary = existing_conversation.summary
         
         try:
+            # 如果有文件但没有会话，需要先创建会话
+            if files and not conversation_id:
+                conversation = self.create_new_conversation(user_id, user_message)
+                conversation_id = conversation.id
+                existing_conversation = conversation
+            
+            # 处理文件上传
+            if files and conversation_id:
+                saved_files, file_errors = await self.file_service.save_files(
+                    files=files,
+                    conversation_id=conversation_id,
+                    user_id=user_id
+                )
+                
+                # 返回文件处理结果
+                files_result = {
+                    "saved": [
+                        {"id": f.id, "name": f.file_name, "type": f.file_type, "size": f.file_size}
+                        for f in saved_files
+                    ],
+                    "errors": file_errors
+                }
+                yield f'{{"files": {json.dumps(files_result)}}}\n'
+            
             # 构建消息上下文
             messages = self.get_chat_context(conversation_id)
             messages.append(Message(role='user', content=user_message, conversation_id=conversation_id))
@@ -142,7 +171,7 @@ class ChatService:
             yield f'{{"error": {json.dumps(str(e))}}}\n'
         finally:
             try:
-                # 确定会话
+                # 确定会话（如果还没创建）
                 if not conversation_id:
                     conversation = self.create_new_conversation(user_id, llm_response_content)
                     conversation_id = conversation.id
