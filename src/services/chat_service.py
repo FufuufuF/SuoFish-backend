@@ -19,7 +19,7 @@ from src.crud.conversation import (
 from src.db.models.conversation import Conversation
 from src.db.models.message import Message
 from src.schemas.llm_config import ChatMetadata
-from src.llm.llm_service import LLMService
+from src.ai.llm import ChatModel
 from src.services.file_service import FileService
 from src.api.deps import get_db_context
 
@@ -32,7 +32,7 @@ class ChatService:
     
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.llm_service = LLMService()
+        self.chat_model = ChatModel()
         self.file_service = FileService(db)
     
     async def trigger_summary_generation(self, conversation_id: int):
@@ -43,8 +43,8 @@ class ChatService:
                 if not all_messages:
                     return
                 
-                llm_service = LLMService()
-                summary = await llm_service.generate_summary(all_messages)
+                chat_model = ChatModel()
+                summary = await chat_model.generate_summary(all_messages)
                 
                 await update_conversation_summary(db, conversation_id, summary)
             except Exception as e:
@@ -79,7 +79,7 @@ class ChatService:
         system_prompt: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """流式生成 LLM 响应"""
-        async for token in self.llm_service.generate_chat_response(messages, system_prompt=system_prompt):
+        async for token in self.chat_model.generate_chat_response(messages, system_prompt=system_prompt):
             yield token
     
     async def save_messages(

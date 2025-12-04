@@ -11,10 +11,10 @@ from typing import Optional
 import aiofiles
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 from src.crud import conversation_file as file_crud
 from src.db.models.conversation_file import ConversationFile
-from src.utils.micorsoft_office_reader import MicrosoftOfficeReader
+from src.ai.rag import DocumentParser
 
 
 # 允许的文件类型
@@ -93,11 +93,11 @@ class FileService:
         # Office 文档类型使用专门的解析器
         # 使用 asyncio.to_thread 在线程池中运行同步的解析操作，避免阻塞事件循环
         if file_type == "pdf":
-            return await asyncio.to_thread(MicrosoftOfficeReader.read_pdf, file_content)
+            return await asyncio.to_thread(DocumentParser.read_pdf, file_content)
         elif file_type == "docx":
-            return await asyncio.to_thread(MicrosoftOfficeReader.read_docx, file_content)
+            return await asyncio.to_thread(DocumentParser.read_docx, file_content)
         elif file_type == "pptx":
-            return await asyncio.to_thread(MicrosoftOfficeReader.read_pptx, file_content)
+            return await asyncio.to_thread(DocumentParser.read_pptx, file_content)
         
         return f"不支持解析的文件类型: {file_type}"
     
@@ -161,7 +161,7 @@ class FileService:
         
         return conversation_file, None
     
-    async def _save_files(
+    async def save_files(
         self,
         files: list[UploadFile],
         conversation_id: int,

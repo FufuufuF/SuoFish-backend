@@ -1,3 +1,8 @@
+"""
+文档解析器 - 支持多种文档格式的文本提取
+
+原文件: src/utils/micorsoft_office_reader.py
+"""
 from io import BytesIO
 from typing import Union
 
@@ -10,7 +15,7 @@ from pypdf import PdfReader
 from pptx import Presentation
 
 
-class MicrosoftOfficeReader:
+class DocumentParser:
     """Office 文档解析器，支持从文件路径或字节数据读取"""
     
     @staticmethod
@@ -104,3 +109,4 @@ class MicrosoftOfficeReader:
             
         except Exception as e:
             return f"读取 PPT 失败: {e}"
+
