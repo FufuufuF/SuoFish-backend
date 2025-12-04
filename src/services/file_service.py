@@ -1,6 +1,7 @@
 """
 文件上传服务 - 处理文件的存储和管理
 """
+import asyncio
 import os
 import uuid
 from datetime import datetime
@@ -10,13 +11,14 @@ from typing import Optional
 import aiofiles
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from src.crud import conversation_file as file_crud
 from src.db.models.conversation_file import ConversationFile
+from src.utils.micorsoft_office_reader import MicrosoftOfficeReader
 
 
 # 允许的文件类型
-ALLOWED_EXTENSIONS = {"docx", "pptx", "xlsx", "json", "md", "txt"}
+ALLOWED_EXTENSIONS = {"docx", "pptx", "pdf", "json", "md", "txt"}
 
 # 文件大小限制（10MB）
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -63,8 +65,43 @@ class FileService:
         safe_filename = original_filename.replace(" ", "_")
         
         return str(UPLOAD_DIR / str(conversation_id) / date_str / f"{unique_id}_{safe_filename}")
+
+    async def _read_file_content(self, file_content: bytes, file_type: str) -> str:
+        """
+        解析文件内容为文本
+        
+        Args:
+            file_content: 文件的字节内容
+            file_type: 文件扩展名 (pdf, docx, pptx, txt, md, json)
+            
+        Returns:
+            解析后的文本内容
+        """
+        file_type = file_type.lower()
+        
+        # 纯文本类型直接解码
+        if file_type in {"txt", "md", "json"}:
+            try:
+                return file_content.decode("utf-8")
+            except UnicodeDecodeError:
+                # 尝试其他编码
+                try:
+                    return file_content.decode("gbk")
+                except UnicodeDecodeError:
+                    return "无法解码文件内容"
+        
+        # Office 文档类型使用专门的解析器
+        # 使用 asyncio.to_thread 在线程池中运行同步的解析操作，避免阻塞事件循环
+        if file_type == "pdf":
+            return await asyncio.to_thread(MicrosoftOfficeReader.read_pdf, file_content)
+        elif file_type == "docx":
+            return await asyncio.to_thread(MicrosoftOfficeReader.read_docx, file_content)
+        elif file_type == "pptx":
+            return await asyncio.to_thread(MicrosoftOfficeReader.read_pptx, file_content)
+        
+        return f"不支持解析的文件类型: {file_type}"
     
-    async def save_file(
+    async def _save_file(
         self,
         file: UploadFile,
         conversation_id: int,
@@ -124,7 +161,7 @@ class FileService:
         
         return conversation_file, None
     
-    async def save_files(
+    async def _save_files(
         self,
         files: list[UploadFile],
         conversation_id: int,
@@ -140,7 +177,7 @@ class FileService:
         errors = []
         
         for file in files:
-            conversation_file, error = await self.save_file(file, conversation_id, user_id)
+            conversation_file, error = await self._save_file(file, conversation_id, user_id)
             if conversation_file:
                 saved_files.append(conversation_file)
             if error:
@@ -148,13 +185,21 @@ class FileService:
         
         return saved_files, errors
     
-    async def get_file_content(self, conversation_file: ConversationFile) -> Optional[bytes]:
-        """异步读取文件内容"""
+    async def _get_file_content(self, conversation_file: ConversationFile) -> Optional[bytes]:
+        """异步读取文件内容（字节）"""
         try:
             async with aiofiles.open(conversation_file.storage_path, "rb") as f:
                 return await f.read()
         except Exception:
             return None
+    
+    async def get_file_text(self, conversation_file: ConversationFile) -> Optional[str]:
+        """异步读取并解析文件内容为文本"""
+        content = await self._get_file_content(conversation_file)
+        if content is None:
+            print(f'file_service.get_file_text: 文件内容为空')
+            return None
+        return await self._read_file_content(content, conversation_file.file_type)
     
     async def delete_file(self, conversation_file: ConversationFile) -> bool:
         """删除文件（包括物理文件和数据库记录）"""

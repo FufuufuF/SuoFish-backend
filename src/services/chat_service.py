@@ -134,6 +134,8 @@ class ChatService:
                 return
             summary = existing_conversation.summary
         
+        saved_files = []
+        
         try:
             # 如果有文件但没有会话，需要先创建会话
             if files and not conversation_id:
@@ -158,6 +160,8 @@ class ChatService:
                     "errors": file_errors
                 }
                 yield f'{{"files": {json.dumps(files_result)}}}\n'
+
+            
             
             # 构建消息上下文
             messages = await self.get_chat_context(conversation_id)
