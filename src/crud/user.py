@@ -1,25 +1,27 @@
 from typing import Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from src.db.models.user import User
 
 
-def create_user(db: Session, user: User) -> User:
+async def create_user(db: AsyncSession, user: User) -> User:
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 
 
-def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
-    return db.query(User).filter(User.id == user_id).first()
+async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User]:
+    result = await db.execute(select(User).filter(User.id == user_id))
+    return result.scalar_one_or_none()
 
 
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
-    return db.query(User).filter(User.email == email).first()
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
+    result = await db.execute(select(User).filter(User.email == email))
+    return result.scalar_one_or_none()
 
 
-def get_user_hash_password(db: Session, email: str) -> Optional[str]:
-    user = get_user_by_email(db, email)
+async def get_user_hash_password(db: AsyncSession, email: str) -> Optional[str]:
+    user = await get_user_by_email(db, email)
     return user.password if user else None
-

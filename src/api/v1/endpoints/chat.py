@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, UploadFile, File
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.services.chat_service import ChatService
 from src.utils.authentic import get_current_user
@@ -17,7 +17,7 @@ async def chat(
     conversation_id: Optional[int] = Form(None, description="会话ID，不传则创建新会话"),
     files: list[UploadFile] = File(default=[], description="上传的文件列表"),
     user_id: int = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     聊天接口 - 流式返回 LLM 响应，支持文件上传

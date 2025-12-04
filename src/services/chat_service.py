@@ -3,7 +3,7 @@ import asyncio
 from typing import AsyncGenerator, Optional
 
 from fastapi import UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.crud.message import (
     create_messages_batch, 
@@ -30,7 +30,7 @@ SUMMARY_TRIGGER_INTERVAL = 20  # 每 N 条消息触发一次总结
 class ChatService:
     """聊天业务逻辑服务"""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         self.llm_service = LLMService()
         self.file_service = FileService(db)
@@ -39,18 +39,18 @@ class ChatService:
         """后台任务：生成对话摘要并保存"""
         async with get_db_context() as db:
             try:
-                all_messages = get_messages_by_conversation_id(db, conversation_id)
+                all_messages = await get_messages_by_conversation_id(db, conversation_id)
                 if not all_messages:
                     return
                 
                 llm_service = LLMService()
                 summary = await llm_service.generate_summary(all_messages)
                 
-                update_conversation_summary(db, conversation_id, summary)
+                await update_conversation_summary(db, conversation_id, summary)
             except Exception as e:
                 print(f"Failed to generate summary for conversation {conversation_id}: {e}")
     
-    def validate_conversation(self, conversation_id: int, user_id: int) -> tuple[Optional[Conversation], Optional[str]]:
+    async def validate_conversation(self, conversation_id: int, user_id: int) -> tuple[Optional[Conversation], Optional[str]]:
         """
         验证会话是否存在且属于当前用户
         返回: (conversation, error_message)
@@ -58,7 +58,7 @@ class ChatService:
         if not conversation_id:
             return None, None
         
-        conversation = get_conversation_by_id(self.db, conversation_id)
+        conversation = await get_conversation_by_id(self.db, conversation_id)
         if not conversation:
             return None, f"Conversation {conversation_id} not found"
         
@@ -67,11 +67,11 @@ class ChatService:
         
         return conversation, None
     
-    def get_chat_context(self, conversation_id: Optional[int]) -> list[Message]:
+    async def get_chat_context(self, conversation_id: Optional[int]) -> list[Message]:
         """获取最近 K 轮对话作为上下文"""
         if not conversation_id:
             return []
-        return get_K_messages_by_conversation_id(self.db, conversation_id, MAX_CHAT_ROUND * 2)
+        return await get_K_messages_by_conversation_id(self.db, conversation_id, MAX_CHAT_ROUND * 2)
     
     async def generate_llm_response(
         self, 
@@ -82,7 +82,7 @@ class ChatService:
         async for token in self.llm_service.generate_chat_response(messages, system_prompt=system_prompt):
             yield token
     
-    def save_messages(
+    async def save_messages(
         self, 
         user_message_content: str, 
         llm_message_content: str,
@@ -91,18 +91,18 @@ class ChatService:
         """保存用户消息和 LLM 响应消息"""
         user_message = Message(role='user', content=user_message_content, conversation_id=conversation_id)
         llm_message = Message(role='assistant', content=llm_message_content, conversation_id=conversation_id)
-        user_message, llm_message = create_messages_batch(self.db, [user_message, llm_message])
+        user_message, llm_message = await create_messages_batch(self.db, [user_message, llm_message])
         return user_message, llm_message
     
-    def create_new_conversation(self, user_id: int, initial_content: str) -> Conversation:
+    async def create_new_conversation(self, user_id: int, initial_content: str) -> Conversation:
         """创建新会话"""
         name = initial_content[:50] if initial_content else "New Chat"
         conversation = Conversation(user_id=user_id, name=name)
-        return create_conversation(self.db, conversation)
+        return await create_conversation(self.db, conversation)
     
-    def should_trigger_summary(self, conversation_id: int) -> bool:
+    async def should_trigger_summary(self, conversation_id: int) -> bool:
         """检查是否应该触发摘要生成"""
-        message_count = get_message_count_by_conversation_id(self.db, conversation_id)
+        message_count = await get_message_count_by_conversation_id(self.db, conversation_id)
         return message_count > 0 and message_count % SUMMARY_TRIGGER_INTERVAL == 0
     
     async def process_chat(
@@ -128,7 +128,7 @@ class ChatService:
         
         # 验证会话
         if conversation_id:
-            existing_conversation, error = self.validate_conversation(conversation_id, user_id)
+            existing_conversation, error = await self.validate_conversation(conversation_id, user_id)
             if error:
                 yield f'{{"error": {json.dumps(error)}}}\n'
                 return
@@ -137,7 +137,7 @@ class ChatService:
         try:
             # 如果有文件但没有会话，需要先创建会话
             if files and not conversation_id:
-                conversation = self.create_new_conversation(user_id, user_message)
+                conversation = await self.create_new_conversation(user_id, user_message)
                 conversation_id = conversation.id
                 existing_conversation = conversation
             
@@ -160,7 +160,7 @@ class ChatService:
                 yield f'{{"files": {json.dumps(files_result)}}}\n'
             
             # 构建消息上下文
-            messages = self.get_chat_context(conversation_id)
+            messages = await self.get_chat_context(conversation_id)
             messages.append(Message(role='user', content=user_message, conversation_id=conversation_id))
             
             # 流式生成响应
@@ -173,16 +173,16 @@ class ChatService:
             try:
                 # 确定会话（如果还没创建）
                 if not conversation_id:
-                    conversation = self.create_new_conversation(user_id, llm_response_content)
+                    conversation = await self.create_new_conversation(user_id, llm_response_content)
                     conversation_id = conversation.id
                 else:
                     conversation = existing_conversation
                 
                 # 保存消息
-                user_msg, llm_msg = self.save_messages(user_message, llm_response_content, conversation_id)
+                user_msg, llm_msg = await self.save_messages(user_message, llm_response_content, conversation_id)
                 
                 # 检查是否需要触发摘要
-                if self.should_trigger_summary(conversation_id):
+                if await self.should_trigger_summary(conversation_id):
                     asyncio.create_task(self.trigger_summary_generation(conversation_id))
                 
                 # 返回元数据
@@ -197,4 +197,3 @@ class ChatService:
                 yield f'{{"metadata": {metadata.model_dump_json()}}}\n'
             except Exception as save_error:
                 yield f'{{"save_error": {json.dumps(str(save_error))}}}\n'
-

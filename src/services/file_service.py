@@ -7,8 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import aiofiles
 from fastapi import UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.crud import conversation_file as file_crud
 from src.db.models.conversation_file import ConversationFile
@@ -27,7 +28,7 @@ UPLOAD_DIR = Path("uploads")
 class FileService:
     """文件上传服务"""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         # 确保上传目录存在
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -102,16 +103,16 @@ class FileService:
         # 确保目录存在
         Path(storage_path).parent.mkdir(parents=True, exist_ok=True)
         
-        # 写入文件
+        # 异步写入文件
         try:
-            with open(storage_path, "wb") as f:
-                f.write(content)
+            async with aiofiles.open(storage_path, "wb") as f:
+                await f.write(content)
         except Exception as e:
             return None, f"文件保存失败: {str(e)}"
         
         # 创建数据库记录
         file_type = self._get_file_extension(file.filename)
-        conversation_file = file_crud.add_file(
+        conversation_file = await file_crud.add_file(
             db=self.db,
             conversation_id=conversation_id,
             user_id=user_id,
@@ -147,15 +148,15 @@ class FileService:
         
         return saved_files, errors
     
-    def get_file_content(self, conversation_file: ConversationFile) -> Optional[bytes]:
-        """读取文件内容"""
+    async def get_file_content(self, conversation_file: ConversationFile) -> Optional[bytes]:
+        """异步读取文件内容"""
         try:
-            with open(conversation_file.storage_path, "rb") as f:
-                return f.read()
+            async with aiofiles.open(conversation_file.storage_path, "rb") as f:
+                return await f.read()
         except Exception:
             return None
     
-    def delete_file(self, conversation_file: ConversationFile) -> bool:
+    async def delete_file(self, conversation_file: ConversationFile) -> bool:
         """删除文件（包括物理文件和数据库记录）"""
         try:
             # 删除物理文件
@@ -163,7 +164,6 @@ class FileService:
                 os.remove(conversation_file.storage_path)
             
             # 删除数据库记录
-            return file_crud.delete_file(self.db, conversation_file.id)
+            return await file_crud.delete_file(self.db, conversation_file.id)
         except Exception:
             return False
-

@@ -1,49 +1,53 @@
 from typing import List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from src.db.models.conversation import Conversation
 
 
-def create_conversation(db: Session, conversation: Conversation) -> Conversation:
+async def create_conversation(db: AsyncSession, conversation: Conversation) -> Conversation:
     db.add(conversation)
-    db.commit()
-    db.refresh(conversation)
+    await db.commit()
+    await db.refresh(conversation)
     return conversation
 
 
-def get_conversation_by_id(db: Session, conversation_id: int) -> Optional[Conversation]:
-    return db.query(Conversation).filter(Conversation.id == conversation_id).first()
+async def get_conversation_by_id(db: AsyncSession, conversation_id: int) -> Optional[Conversation]:
+    result = await db.execute(select(Conversation).filter(Conversation.id == conversation_id))
+    return result.scalar_one_or_none()
 
 
-def get_conversations_by_user_id(db: Session, user_id: int) -> List[Conversation]:
-    return db.query(Conversation).filter(
-        Conversation.user_id == user_id
-    ).order_by(Conversation.updated_at.desc()).all()
+async def get_conversations_by_user_id(db: AsyncSession, user_id: int) -> List[Conversation]:
+    result = await db.execute(
+        select(Conversation)
+        .filter(Conversation.user_id == user_id)
+        .order_by(Conversation.updated_at.desc())
+    )
+    return list(result.scalars().all())
 
 
-def update_conversation_name(db: Session, conversation_id: int, name: str) -> Optional[Conversation]:
-    conversation = get_conversation_by_id(db, conversation_id)
+async def update_conversation_name(db: AsyncSession, conversation_id: int, name: str) -> Optional[Conversation]:
+    conversation = await get_conversation_by_id(db, conversation_id)
     if conversation:
         conversation.name = name
-        db.commit()
-        db.refresh(conversation)
+        await db.commit()
+        await db.refresh(conversation)
     return conversation
 
 
-def delete_conversation_by_id(db: Session, conversation_id: int) -> bool:
-    conversation = get_conversation_by_id(db, conversation_id)
+async def delete_conversation_by_id(db: AsyncSession, conversation_id: int) -> bool:
+    conversation = await get_conversation_by_id(db, conversation_id)
     if conversation:
-        db.delete(conversation)
-        db.commit()
+        await db.delete(conversation)
+        await db.commit()
         return True
     return False
 
 
-def update_conversation_summary(db: Session, conversation_id: int, summary: str) -> Optional[Conversation]:
-    conversation = get_conversation_by_id(db, conversation_id)
+async def update_conversation_summary(db: AsyncSession, conversation_id: int, summary: str) -> Optional[Conversation]:
+    conversation = await get_conversation_by_id(db, conversation_id)
     if conversation:
         conversation.summary = summary
-        db.commit()
-        db.refresh(conversation)
+        await db.commit()
+        await db.refresh(conversation)
     return conversation
-

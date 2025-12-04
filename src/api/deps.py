@@ -1,26 +1,31 @@
 from contextlib import asynccontextmanager
-from src.db.session import SessionLocal
+from typing import AsyncGenerator
 
-def get_db():
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.db.session import AsyncSessionLocal
+
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    FastAPI 依赖项：
-    - 在请求开始时创建数据库会话
+    FastAPI 异步依赖项：
+    - 在请求开始时创建异步数据库会话
     - 在请求完成后关闭数据库会话（无论成功或失败）
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    async with AsyncSessionLocal() as db:
+        try:
+            yield db
+        finally:
+            await db.close()
 
 
 @asynccontextmanager
-async def get_db_context():
+async def get_db_context() -> AsyncGenerator[AsyncSession, None]:
     """
     异步上下文管理器：用于后台任务等非 FastAPI 依赖场景
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    async with AsyncSessionLocal() as db:
+        try:
+            yield db
+        finally:
+            await db.close()

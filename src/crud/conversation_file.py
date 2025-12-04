@@ -2,13 +2,14 @@
 ConversationFile CRUD 操作
 """
 from typing import Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 
 from src.db.models.conversation_file import ConversationFile
 
 
-def add_file(
-    db: Session,
+async def add_file(
+    db: AsyncSession,
     conversation_id: int,
     user_id: int,
     file_name: str,
@@ -28,53 +29,63 @@ def add_file(
         status=status
     )
     db.add(conversation_file)
-    db.commit()
-    db.refresh(conversation_file)
+    await db.commit()
+    await db.refresh(conversation_file)
     return conversation_file
 
-def get_file_by_id(db: Session, file_id: int) -> Optional[ConversationFile]:
+
+async def get_file_by_id(db: AsyncSession, file_id: int) -> Optional[ConversationFile]:
     """根据 ID 获取文件记录"""
-    return db.query(ConversationFile).filter(ConversationFile.id == file_id).first()
+    result = await db.execute(select(ConversationFile).filter(ConversationFile.id == file_id))
+    return result.scalar_one_or_none()
 
 
-def get_files_by_conversation(db: Session, conversation_id: int) -> list[ConversationFile]:
+async def get_files_by_conversation(db: AsyncSession, conversation_id: int) -> list[ConversationFile]:
     """获取会话的所有文件"""
-    return db.query(ConversationFile).filter(
-        ConversationFile.conversation_id == conversation_id
-    ).order_by(ConversationFile.created_at.desc()).all()
+    result = await db.execute(
+        select(ConversationFile)
+        .filter(ConversationFile.conversation_id == conversation_id)
+        .order_by(ConversationFile.created_at.desc())
+    )
+    return list(result.scalars().all())
 
 
-def get_parsed_files_by_conversation(db: Session, conversation_id: int) -> list[ConversationFile]:
+async def get_parsed_files_by_conversation(db: AsyncSession, conversation_id: int) -> list[ConversationFile]:
     """获取会话中已解析的文件"""
-    return db.query(ConversationFile).filter(
-        ConversationFile.conversation_id == conversation_id,
-        ConversationFile.status == "parsed"
-    ).order_by(ConversationFile.created_at.desc()).all()
+    result = await db.execute(
+        select(ConversationFile)
+        .filter(
+            ConversationFile.conversation_id == conversation_id,
+            ConversationFile.status == "parsed"
+        )
+        .order_by(ConversationFile.created_at.desc())
+    )
+    return list(result.scalars().all())
 
 
-def update_file_status(db: Session, file_id: int, status: str) -> Optional[ConversationFile]:
+async def update_file_status(db: AsyncSession, file_id: int, status: str) -> Optional[ConversationFile]:
     """更新文件状态"""
-    file = get_file_by_id(db, file_id)
+    file = await get_file_by_id(db, file_id)
     if file:
         file.status = status
-        db.commit()
-        db.refresh(file)
+        await db.commit()
+        await db.refresh(file)
     return file
 
 
-def delete_file(db: Session, file_id: int) -> bool:
+async def delete_file(db: AsyncSession, file_id: int) -> bool:
     """删除文件记录"""
-    file = get_file_by_id(db, file_id)
+    file = await get_file_by_id(db, file_id)
     if file:
-        db.delete(file)
-        db.commit()
+        await db.delete(file)
+        await db.commit()
         return True
     return False
 
 
-def count_files_by_conversation(db: Session, conversation_id: int) -> int:
+async def count_files_by_conversation(db: AsyncSession, conversation_id: int) -> int:
     """统计会话的文件数量"""
-    return db.query(ConversationFile).filter(
-        ConversationFile.conversation_id == conversation_id
-    ).count()
-
+    result = await db.execute(
+        select(func.count()).select_from(ConversationFile).filter(ConversationFile.conversation_id == conversation_id)
+    )
+    return result.scalar() or 0
