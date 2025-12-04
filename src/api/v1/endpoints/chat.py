@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Form, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.services.file_service import FileService
 from src.services.chat_service import ChatService
 from src.utils.authentic import get_current_user
 from src.api.deps import get_db
@@ -34,6 +35,8 @@ async def chat(
     - {"files": [...]} - 上传文件的处理结果
     """
     chat_service = ChatService(db)
+    for file in files:
+        print(file.filename)
     return StreamingResponse(
         chat_service.process_chat(
             user_message=user_message,
