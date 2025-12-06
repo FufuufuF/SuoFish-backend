@@ -26,3 +26,18 @@ class DatabaseSettings(BaseSettings):
         """同步数据库连接 URL"""
         return f"mysql+pymysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.name}"
 
+class ChromaSettings(BaseSettings):
+    """Chroma 向量数据库配置"""
+    path: str = "./chroma_data"  # 默认持久化路径
+    collection_name: str = "documents"  # 默认集合名称
+    
+    model_config = SettingsConfigDict(
+        env_prefix="CHROMA_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+# 创建配置单例
+chroma_settings = ChromaSettings()

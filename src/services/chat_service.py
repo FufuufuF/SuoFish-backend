@@ -21,10 +21,12 @@ from src.db.models.message import Message
 from src.schemas.llm_config import ChatMetadata
 from src.ai.llm import ChatModel
 from src.services.file_service import FileService
+from src.services.rag_service import get_rag_service, RAGService
 from src.api.deps import get_db_context
 
 MAX_CHAT_ROUND = 20  # 保留最近 K 轮对话
 SUMMARY_TRIGGER_INTERVAL = 20  # 每 N 条消息触发一次总结
+RAG_TOP_K = 5  # RAG 检索返回的最大结果数量
 
 
 class ChatService:
@@ -34,6 +36,7 @@ class ChatService:
         self.db = db
         self.chat_model = ChatModel()
         self.file_service = FileService(db)
+        self.rag_service: RAGService = get_rag_service()
     
     async def trigger_summary_generation(self, conversation_id: int):
         """后台任务：生成对话摘要并保存"""
@@ -110,7 +113,8 @@ class ChatService:
         user_message: str,
         user_id: int,
         conversation_id: Optional[int] = None,
-        files: Optional[list[UploadFile]] = None
+        files: Optional[list[UploadFile]] = None,
+        knowledge_base_ids: Optional[list[int]] = None
     ) -> AsyncGenerator[str, None]:
         """
         处理聊天请求的完整流程
@@ -121,6 +125,7 @@ class ChatService:
         - {"metadata": {...}} - 完成后的元数据
         - {"save_error": "..."} - 保存时的错误
         - {"files": {...}} - 文件上传结果
+        - {"rag_results": {...}} - RAG 检索结果
         """
         llm_response_content = ''
         existing_conversation = None
@@ -135,6 +140,7 @@ class ChatService:
             summary = existing_conversation.summary
         
         saved_files = []
+        rag_context = ""
         
         try:
             # 如果有文件但没有会话，需要先创建会话
@@ -160,15 +166,60 @@ class ChatService:
                     "errors": file_errors
                 }
                 yield f'{{"files": {json.dumps(files_result)}}}\n'
-
+                
+                # 对上传的文件进行嵌入处理
+                for saved_file in saved_files:
+                    try:
+                        file_path = self.file_service.get_file_path(saved_file)
+                        self.rag_service.embed_conversation_file(
+                            file_path=file_path,
+                            file_id=saved_file.id,
+                            conversation_id=conversation_id,
+                            user_id=user_id
+                        )
+                    except Exception as embed_error:
+                        # 嵌入失败不阻塞聊天流程，只记录错误
+                        print(f"Failed to embed file {saved_file.file_name}: {embed_error}")
             
+            # RAG 检索（如果有会话 ID）
+            if conversation_id:
+                rag_results = self.rag_service.retrieve_with_knowledge_base(
+                    query=user_message,
+                    conversation_id=conversation_id,
+                    knowledge_base_ids=knowledge_base_ids,
+                    top_k=RAG_TOP_K
+                )
+                
+                if rag_results:
+                    # 返回 RAG 检索结果给前端
+                    rag_results_data = {
+                        "count": len(rag_results),
+                        "results": [
+                            {
+                                "content": r.content[:200] + "..." if len(r.content) > 200 else r.content,
+                                "score": round(r.score, 4),
+                                "source_type": r.metadata.get("source_type", "unknown"),
+                                "file_id": r.metadata.get("file_id"),
+                                "knowledge_base_id": r.metadata.get("knowledge_base_id"),
+                                "page": r.metadata.get("page"),
+                            }
+                            for r in rag_results
+                        ]
+                    }
+                    yield f'{{"rag_results": {json.dumps(rag_results_data, ensure_ascii=False)}}}\n'
+                    
+                    # 格式化为 LLM 上下文
+                    rag_context = self.rag_service.format_context(rag_results)
+            
+            # 构建系统提示词（包含摘要和 RAG 上下文）
+            system_prompt = self._build_system_prompt(summary, rag_context)
             
             # 构建消息上下文
             messages = await self.get_chat_context(conversation_id)
             messages.append(Message(role='user', content=user_message, conversation_id=conversation_id))
             
             # 流式生成响应
-            async for token in self.generate_llm_response(messages, system_prompt=summary):
+            async for token in self.generate_llm_response(messages, system_prompt=system_prompt):
                 llm_response_content += token
                 yield f'{{"token": {json.dumps(token)}}}\n'
         except Exception as e:
@@ -201,3 +252,28 @@ class ChatService:
                 yield f'{{"metadata": {metadata.model_dump_json()}}}\n'
             except Exception as save_error:
                 yield f'{{"save_error": {json.dumps(str(save_error))}}}\n'
+    
+    def _build_system_prompt(
+        self, 
+        summary: Optional[str], 
+        rag_context: Optional[str]
+    ) -> Optional[str]:
+        """
+        构建系统提示词
+        
+        Args:
+            summary: 对话摘要
+            rag_context: RAG 检索到的上下文
+        """
+        parts = []
+        
+        if summary:
+            parts.append(f"对话背景摘要：\n{summary}")
+        
+        if rag_context:
+            parts.append(f"参考资料（请基于以下内容回答问题，如果参考资料与问题无关则忽略）：\n{rag_context}")
+        
+        if not parts:
+            return None
+        
+        return "\n\n".join(parts)
