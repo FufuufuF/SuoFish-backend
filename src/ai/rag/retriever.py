@@ -197,6 +197,9 @@ class DocumentRetriever(BaseRetriever):
         """
         将检索结果格式化为上下文字符串，供 LLM 使用
         
+        注意：推荐使用 src.prompt.rag.format_rag_context 函数，
+        该方法保留用于向后兼容。
+        
         Args:
             results: 检索结果列表
             separator: 分隔符
@@ -204,17 +207,8 @@ class DocumentRetriever(BaseRetriever):
         Returns:
             格式化后的上下文字符串
         """
-        if not results:
-            return ""
-        
-        formatted_chunks = []
-        for i, result in enumerate(results, 1):
-            chunk_text = f"[文档片段 {i}]\n{result.content}"
-            if result.metadata.get("page"):
-                chunk_text += f"\n(来源: 第 {result.metadata['page']} 页)"
-            formatted_chunks.append(chunk_text)
-        
-        return separator.join(formatted_chunks)
+        from src.prompt.rag import format_rag_context
+        return format_rag_context(results, separator)
 
 
 # 便捷函数

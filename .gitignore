@@ -1,3 +1,4 @@
 .env
 __pycache__/
 uploads/
+chroma_data/

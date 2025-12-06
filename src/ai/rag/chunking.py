@@ -35,7 +35,8 @@ class FileChunker():
         doc_path: Path, 
         file_id: int,
         conversation_id: int,
-        user_id: int
+        user_id: int,
+        file_name: Optional[str] = None
     ) -> List[Document]:
         """
         分块会话文件
@@ -45,9 +46,13 @@ class FileChunker():
             file_id: 文件 ID (对应 MySQL conversation_file.id)
             conversation_id: 会话 ID
             user_id: 用户 ID
+            file_name: 文件名（用于在 RAG 检索结果中显示来源）
         """
         docs = self._load_document(doc_path)
         chunked_documents = self.text_splitter.split_documents(docs)
+        
+        # 使用传入的文件名，如果没有则使用路径中的文件名
+        actual_file_name = file_name or doc_path.name
         
         for i, chunk in enumerate(chunked_documents):
             chunk.metadata.update({
@@ -56,6 +61,7 @@ class FileChunker():
                 "conversation_id": conversation_id,
                 "user_id": user_id,
                 "chunk_index": i,
+                "file_name": actual_file_name,
             })
         
         return chunked_documents

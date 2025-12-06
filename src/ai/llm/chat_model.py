@@ -4,20 +4,8 @@ from langchain_openai import ChatOpenAI
 
 from src.core.config import llm as llm_config
 from src.db.models.message import Message
+from src.prompt import SUMMARY_PROMPT
 from .base import BaseLLM
-
-
-SUMMARY_PROMPT = """请将以下对话历史总结为简洁的摘要，保留关键信息、用户偏好和重要上下文。
-摘要应该：
-1. 概括对话的主要话题和结论
-2. 保留用户明确表达的偏好或要求
-3. 记录任何重要的决策或待办事项
-4. 控制在300字以内
-
-对话历史：
-{conversation}
-
-请直接输出摘要内容，不要有多余的开头或解释。"""
 
 
 class ChatModel(BaseLLM):

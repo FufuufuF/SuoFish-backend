@@ -35,7 +35,8 @@ class RAGService:
         file_path: Path,
         file_id: int,
         conversation_id: int,
-        user_id: int
+        user_id: int,
+        file_name: Optional[str] = None
     ) -> EmbedResult:
         """
         嵌入会话文件
@@ -45,6 +46,7 @@ class RAGService:
             file_id: 文件 ID (MySQL conversation_file.id)
             conversation_id: 会话 ID
             user_id: 用户 ID
+            file_name: 文件名（用于在 RAG 检索结果中显示来源）
             
         Returns:
             嵌入结果，包含分块数量和向量 ID 列表
@@ -54,7 +56,8 @@ class RAGService:
             doc_path=file_path,
             file_id=file_id,
             conversation_id=conversation_id,
-            user_id=user_id
+            user_id=user_id,
+            file_name=file_name
         )
         
         # 2. 向量化
@@ -162,7 +165,8 @@ class RAGService:
             results: 检索结果列表
             separator: 分隔符
         """
-        return self._retriever.format_context(results, separator)
+        from src.prompt.rag import format_rag_context
+        return format_rag_context(results, separator)
 
     # ==================== 删除相关 ====================
 

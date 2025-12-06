@@ -16,6 +16,7 @@ from src.crud.conversation import (
     update_conversation_summary,
     get_conversation_by_id,
 )
+from src.crud.conversation_file import get_files_by_conversation
 from src.db.models.conversation import Conversation
 from src.db.models.message import Message
 from src.schemas.llm_config import ChatMetadata
@@ -23,6 +24,7 @@ from src.ai.llm import ChatModel
 from src.services.file_service import FileService
 from src.services.rag_service import get_rag_service, RAGService
 from src.api.deps import get_db_context
+from src.prompt import build_system_prompt
 
 MAX_CHAT_ROUND = 20  # 保留最近 K 轮对话
 SUMMARY_TRIGGER_INTERVAL = 20  # 每 N 条消息触发一次总结
@@ -175,11 +177,18 @@ class ChatService:
                             file_path=file_path,
                             file_id=saved_file.id,
                             conversation_id=conversation_id,
-                            user_id=user_id
+                            user_id=user_id,
+                            file_name=saved_file.file_name  # 传递文件名用于 RAG 上下文展示
                         )
                     except Exception as embed_error:
                         # 嵌入失败不阻塞聊天流程，只记录错误
                         print(f"Failed to embed file {saved_file.file_name}: {embed_error}")
+            
+            # 获取会话中的文件列表（用于系统提示词）
+            file_names = []
+            if conversation_id:
+                conversation_files = await get_files_by_conversation(self.db, conversation_id)
+                file_names = [f.file_name for f in conversation_files]
             
             # RAG 检索（如果有会话 ID）
             if conversation_id:
@@ -200,6 +209,7 @@ class ChatService:
                                 "score": round(r.score, 4),
                                 "source_type": r.metadata.get("source_type", "unknown"),
                                 "file_id": r.metadata.get("file_id"),
+                                "file_name": r.metadata.get("file_name"),
                                 "knowledge_base_id": r.metadata.get("knowledge_base_id"),
                                 "page": r.metadata.get("page"),
                             }
@@ -211,8 +221,8 @@ class ChatService:
                     # 格式化为 LLM 上下文
                     rag_context = self.rag_service.format_context(rag_results)
             
-            # 构建系统提示词（包含摘要和 RAG 上下文）
-            system_prompt = self._build_system_prompt(summary, rag_context)
+            # 构建系统提示词（包含摘要、RAG 上下文和文件列表）
+            system_prompt = self._build_system_prompt(summary, rag_context, file_names)
             
             # 构建消息上下文
             messages = await self.get_chat_context(conversation_id)
@@ -256,7 +266,8 @@ class ChatService:
     def _build_system_prompt(
         self, 
         summary: Optional[str], 
-        rag_context: Optional[str]
+        rag_context: Optional[str],
+        file_names: Optional[list[str]] = None
     ) -> Optional[str]:
         """
         构建系统提示词
@@ -264,16 +275,10 @@ class ChatService:
         Args:
             summary: 对话摘要
             rag_context: RAG 检索到的上下文
+            file_names: 用户上传的文件名列表
         """
-        parts = []
-        
-        if summary:
-            parts.append(f"对话背景摘要：\n{summary}")
-        
-        if rag_context:
-            parts.append(f"参考资料（请基于以下内容回答问题，如果参考资料与问题无关则忽略）：\n{rag_context}")
-        
-        if not parts:
-            return None
-        
-        return "\n\n".join(parts)
+        return build_system_prompt(
+            summary=summary,
+            rag_context=rag_context,
+            file_names=file_names
+        )
