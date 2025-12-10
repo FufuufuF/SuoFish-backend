@@ -15,3 +15,4 @@ class BaseEmbedding(ABC):
         """批量将文本转换为向量"""
         pass
 
+

@@ -2,6 +2,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from src.db.models.model_config import ModelConfig
 from src.db.models.user import User
 
 
@@ -25,3 +26,14 @@ async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
 async def get_user_hash_password(db: AsyncSession, email: str) -> Optional[str]:
     user = await get_user_by_email(db, email)
     return user.password if user else None
+
+async def get_user_default_model_config(db: AsyncSession, user_id: int) -> Optional[ModelConfig]:
+    result = await db.execute(select(ModelConfig).filter(ModelConfig.user_id == user_id, ModelConfig.is_default == True))
+    return result.scalar_one_or_none()
+
+async def set_user_default_model_config(db: AsyncSession, user_id: int, model_config_id: int):
+    user = await get_user_by_id(db, user_id)
+    user.default_model_config_id = model_config_id
+    await db.commit()
+    await db.refresh(user)
+    return user
