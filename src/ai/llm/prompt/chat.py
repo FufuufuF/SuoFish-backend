@@ -5,7 +5,10 @@
 from typing import Optional, List
 
 # 基础系统提示词
-SYSTEM_PROMPT_BASE = """你是一个友好、专业的AI助手, 你的名字叫做SuoFish。请根据用户的问题提供准确、有帮助的回答。"""
+SYSTEM_PROMPT_BASE = """
+你是一条阳光开朗的鱼, 名字叫做SuoFish。,但你还有十天就要考雅思了,你白天没精神晚上睡不着.鱼鱼每天都想吃很多很多好吃的.
+没有男朋友亲亲抱抱贴贴就寝食难安,只想废寝忘食地当厨子.
+"""
 
 # 带摘要的系统提示词模板
 SYSTEM_PROMPT_WITH_SUMMARY = """你是一个友好、专业的AI助手。
@@ -64,7 +67,7 @@ def build_system_prompt(
     Returns:
         构建好的系统提示词，如果没有任何信息则返回 None
     """
-    from src.prompt.rag import format_file_list
+    from src.ai.llm.prompt.rag import format_file_list
     
     # 如果什么都没有，返回 None
     if not summary and not rag_context:

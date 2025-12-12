@@ -8,7 +8,7 @@ from src.crud.conversation_file import get_files_by_conversation
 from src.utils.authentic import get_current_user
 from src.api.deps import get_db
 from src.schemas.api_response import APIResponse
-from src.schemas.chat import ConversationResponse
+from src.schemas.conversation import ConversationResponse
 from src.services.rag_service import get_rag_service
 
 router = APIRouter()

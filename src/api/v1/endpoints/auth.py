@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import bcrypt
 
 from src.schemas.api_response import APIResponse
-from src.schemas.sign import SignUp, SignIn
+from src.schemas.auth import UserRegister, UserLogin, UserResponse, TokenResponse
 from src.db.models.user import User
 from src.crud.user import create_user, get_user_by_email, get_user_hash_password
 from src.api.deps import get_db
@@ -25,23 +25,23 @@ async def verify_password(db: AsyncSession, email: str, login_password: str) -> 
 
 
 @sign_up_router.post("/")
-async def sign_up(sign_up: SignUp, db: AsyncSession = Depends(get_db)):
-    user = await get_user_by_email(db, sign_up.email)
+async def sign_up(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
+    user = await get_user_by_email(db, user_data.email)
     if user:
         return APIResponse(retcode=400, message="Email already registered")
-    sign_up.password = bcrypt.hashpw(sign_up.password.encode('utf-8'), bcrypt.gensalt())
-    user = User(**sign_up.model_dump())
+    user_data.password = bcrypt.hashpw(user_data.password.encode('utf-8'), bcrypt.gensalt())
+    user = User(**user_data.model_dump())
     await create_user(db, user)
     return APIResponse(retcode=0, message="success")
 
 
 @sign_in_router.post("/")
-async def sign_in(sign_in: SignIn, response: Response, db: AsyncSession = Depends(get_db)):
-    user = await get_user_by_email(db, sign_in.email)
+async def sign_in(login_data: UserLogin, response: Response, db: AsyncSession = Depends(get_db)):
+    user = await get_user_by_email(db, login_data.email)
     if not user:
         return APIResponse(retcode=400, message="Email not registered")
 
-    if not await verify_password(db, sign_in.email, sign_in.password):
+    if not await verify_password(db, login_data.email, login_data.password):
         return APIResponse(retcode=400, message="Invalid password")
     
     # 确保 user.id 转换为字符串

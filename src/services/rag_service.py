@@ -165,7 +165,7 @@ class RAGService:
             results: 检索结果列表
             separator: 分隔符
         """
-        from src.prompt.rag import format_rag_context
+        from src.ai.llm.prompt.rag import format_rag_context
         return format_rag_context(results, separator)
 
     # ==================== 删除相关 ====================

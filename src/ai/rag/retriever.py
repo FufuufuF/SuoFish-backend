@@ -197,7 +197,7 @@ class DocumentRetriever(BaseRetriever):
         """
         将检索结果格式化为上下文字符串，供 LLM 使用
         
-        注意：推荐使用 src.prompt.rag.format_rag_context 函数，
+        注意：推荐使用 src.ai.llm.prompt.rag.format_rag_context 函数，
         该方法保留用于向后兼容。
         
         Args:
@@ -207,7 +207,7 @@ class DocumentRetriever(BaseRetriever):
         Returns:
             格式化后的上下文字符串
         """
-        from src.prompt.rag import format_rag_context
+        from src.ai.llm.prompt.rag import format_rag_context
         return format_rag_context(results, separator)
 
 

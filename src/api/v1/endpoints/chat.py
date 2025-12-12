@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, Form, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.crud.user import get_user_default_model_config
 from src.services.chat_service import ChatService
 from src.utils.authentic import get_current_user
 from src.api.deps import get_db
 
 router = APIRouter()
-
 
 @router.post("/")
 async def chat(
@@ -46,8 +46,10 @@ async def chat(
                 kb_ids = None
         except json.JSONDecodeError:
             kb_ids = None
-    
-    chat_service = ChatService(db)
+    model_config = await get_user_default_model_config(db, user_id)
+    if model_config is None:
+        print("No default model config found")
+    chat_service = ChatService(db, model_config=model_config) # 使用用户默认模型配置
     return StreamingResponse(
         chat_service.process_chat(
             user_message=user_message,

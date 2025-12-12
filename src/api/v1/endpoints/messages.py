@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.crud.conversation import get_conversation_by_id
-from src.schemas.chat import MessageResponse
+from src.schemas.message import MessageResponse
 from src.crud.message import get_messages_by_conversation_id
 from src.utils.authentic import get_current_user
 from src.api.deps import get_db

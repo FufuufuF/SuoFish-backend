@@ -27,8 +27,15 @@ async def get_user_hash_password(db: AsyncSession, email: str) -> Optional[str]:
     user = await get_user_by_email(db, email)
     return user.password if user else None
 
+async def get_user_default_model_config_id(db: AsyncSession, user_id: int) -> Optional[int]:
+    user = await get_user_by_id(db, user_id)
+    return user.default_model_config_id if user else None
+
 async def get_user_default_model_config(db: AsyncSession, user_id: int) -> Optional[ModelConfig]:
-    result = await db.execute(select(ModelConfig).filter(ModelConfig.user_id == user_id, ModelConfig.is_default == True))
+    user = await get_user_by_id(db, user_id)
+    if user is None or user.default_model_config_id is None:
+        return None
+    result = await db.execute(select(ModelConfig).filter(ModelConfig.id == user.default_model_config_id))
     return result.scalar_one_or_none()
 
 async def set_user_default_model_config(db: AsyncSession, user_id: int, model_config_id: int):

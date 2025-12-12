@@ -19,12 +19,13 @@ from src.crud.conversation import (
 from src.crud.conversation_file import get_files_by_conversation
 from src.db.models.conversation import Conversation
 from src.db.models.message import Message
-from src.schemas.llm_config import ChatMetadata
+from src.schemas.chat import ChatMetadata
 from src.ai.llm import ChatModel
 from src.services.file_service import FileService
 from src.services.rag_service import get_rag_service, RAGService
 from src.api.deps import get_db_context
-from src.prompt import build_system_prompt
+from src.ai.llm.prompt import build_system_prompt
+from src.db.models.model_config import ModelConfig
 
 MAX_CHAT_ROUND = 20  # 保留最近 K 轮对话
 SUMMARY_TRIGGER_INTERVAL = 20  # 每 N 条消息触发一次总结
@@ -34,9 +35,9 @@ RAG_TOP_K = 5  # RAG 检索返回的最大结果数量
 class ChatService:
     """聊天业务逻辑服务"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, model_config: Optional[ModelConfig] = None):
         self.db = db
-        self.chat_model = ChatModel()
+        self.chat_model = ChatModel(model_config=model_config)
         self.file_service = FileService(db)
         self.rag_service: RAGService = get_rag_service()
     
