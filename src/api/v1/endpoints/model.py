@@ -142,7 +142,7 @@ async def update_model_config(
     return APIResponse(retcode=0, message="success", data=response)
 
 
-@router.post("/delete/", response_model=APIResponse)
+@router.post("/delete", response_model=APIResponse)
 async def delete_model_config(
     request: ModelConfigDelete,
     user_id: int = Depends(get_current_user),
