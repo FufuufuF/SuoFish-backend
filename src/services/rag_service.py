@@ -77,6 +77,7 @@ class RAGService:
     def embed_knowledge_base_file(
         self,
         file_path: Path,
+        file_id: int,
         knowledge_base_id: int,
         user_id: int,
         file_name: Optional[str] = None
@@ -86,6 +87,7 @@ class RAGService:
         
         Args:
             file_path: 文件路径
+            file_id: 文件 ID (MySQL knowledge_base_file.id)
             knowledge_base_id: 知识库 ID
             user_id: 用户 ID
             file_name: 文件名（可选）
@@ -96,6 +98,7 @@ class RAGService:
         # 1. 分块
         chunks = self._chunker.split_knowledge_base_file(
             doc_path=file_path,
+            file_id=file_id,
             knowledge_base_id=knowledge_base_id,
             user_id=user_id,
             file_name=file_name
@@ -110,7 +113,7 @@ class RAGService:
         vector_ids = self._vector_store.add_vectors(vectors, texts, metadatas)
         
         return EmbedResult(
-            file_id=knowledge_base_id,
+            file_id=file_id,
             chunk_count=len(chunks),
             vector_ids=vector_ids
         )
