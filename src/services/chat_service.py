@@ -21,7 +21,7 @@ from src.db.models.conversation import Conversation
 from src.db.models.message import Message
 from src.schemas.chat import ChatMetadata
 from src.ai.llm import ChatModel
-from src.services.file_service import FileService
+from src.services.conversation_file_service import ConversationFileService
 from src.services.rag_service import get_rag_service, RAGService
 from src.api.deps import get_db_context
 from src.ai.llm.prompt import build_system_prompt
@@ -38,7 +38,7 @@ class ChatService:
     def __init__(self, db: AsyncSession, model_config: Optional[ModelConfig] = None):
         self.db = db
         self.chat_model = ChatModel(model_config=model_config)
-        self.file_service = FileService(db)
+        self.file_service = ConversationFileService(db)
         self.rag_service: RAGService = get_rag_service()
     
     async def trigger_summary_generation(self, conversation_id: int):

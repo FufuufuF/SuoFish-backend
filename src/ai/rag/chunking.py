@@ -68,7 +68,8 @@ class FileChunker():
 
     def split_knowledge_base_file(
         self, 
-        doc_path: Path, 
+        doc_path: Path,
+        file_id: int,
         knowledge_base_id: int,
         user_id: int,
         file_name: Optional[str] = None
@@ -78,6 +79,7 @@ class FileChunker():
         
         Args:
             doc_path: 文件路径
+            file_id: 文件 ID (对应 MySQL knowledge_base_file.id)
             knowledge_base_id: 知识库 ID
             user_id: 用户 ID
             file_name: 文件名（可选，用于溯源）
@@ -88,6 +90,7 @@ class FileChunker():
         for i, chunk in enumerate(chunked_documents):
             chunk.metadata.update({
                 "source_type": "knowledge_base",
+                "file_id": file_id,
                 "knowledge_base_id": knowledge_base_id,
                 "user_id": user_id,
                 "chunk_index": i,
