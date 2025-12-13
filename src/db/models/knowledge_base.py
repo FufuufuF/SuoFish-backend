@@ -1,7 +1,14 @@
 from datetime import datetime
+from enum import Enum
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
+
 from src.db.session import Base
+
+class KnowledgeBaseStatus(Enum):
+    UPLOADING = 0
+    CHUNKING = 1
+    PUBLISHED = 2
 
 class KnowledgeBase(Base):
     __tablename__ = "knowledge_base"
@@ -12,6 +19,7 @@ class KnowledgeBase(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False, index=True)
+    status = Column(Integer, nullable=False, default=KnowledgeBaseStatus.UPLOADING)
     
     # 关联关系
     files = relationship("KnowledgeBaseFile", back_populates="knowledge_base", cascade="all, delete-orphan")
