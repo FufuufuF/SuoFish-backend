@@ -5,7 +5,7 @@ from src.db.models.message import Message
 from src.db.models.conversation_file import ConversationFile
 from src.db.models.model_config import ModelConfig
 from src.db.models.knowledge_base import KnowledgeBase
-from src.db.models.knowledge_dase_file import KnowledgeBaseFile
+from src.db.models.knowledge_base_file import KnowledgeBaseFile
 
 __all__ = [
     "User",
