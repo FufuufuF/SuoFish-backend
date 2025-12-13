@@ -21,4 +21,4 @@ class User(Base):
     conversations = relationship("Conversation", back_populates="user")
     model_configs = relationship("ModelConfig", back_populates="user", foreign_keys="ModelConfig.user_id")
     default_model_config = relationship("ModelConfig", foreign_keys=[default_model_config_id])
-
+    knowledge_bases = relationship("KnowledgeBase", back_populates="user")
