@@ -4,6 +4,7 @@ from src.api.v1.endpoints.chat import router as chat_router
 from src.api.v1.endpoints.conversations import router as conversations_router
 from src.api.v1.endpoints.messages import router as messages_router
 from src.api.v1.endpoints.model import router as model_router
+from src.api.v1.endpoints.knowledge_base import router as knowledge_base_router
 
 router = APIRouter()
 
@@ -15,3 +16,4 @@ router.include_router(chat_router, prefix="/chat")
 router.include_router(conversations_router, prefix="/conversations")
 router.include_router(messages_router, prefix="/messages")
 router.include_router(model_router, prefix="/model")
+router.include_router(knowledge_base_router, prefix="/knowledge-base")

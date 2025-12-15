@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 
 from src.db.session import Base
@@ -20,7 +20,9 @@ class KnowledgeBase(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False, index=True)
     status = Column(Integer, nullable=False, default=KnowledgeBaseStatus.UPLOADING)
+    # 存储文件信息列表: [{"file_id": 1, "file_name": "xxx.pdf"}, ...]
+    file_list = Column(JSON, nullable=True, default=list)
     
     # 关联关系
-    files = relationship("KnowledgeBaseFile", back_populates="knowledge_base", cascade="all, delete-orphan")
+    knowledge_base_files = relationship("KnowledgeBaseFile", back_populates="knowledge_base", cascade="all, delete-orphan")
     user = relationship("User", back_populates="knowledge_bases")

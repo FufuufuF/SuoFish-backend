@@ -16,4 +16,4 @@ class KnowledgeBaseFile(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # 关联关系
-    knowledge_base = relationship("KnowledgeBase", back_populates="files")
+    knowledge_base = relationship("KnowledgeBase", back_populates="knowledge_base_files")

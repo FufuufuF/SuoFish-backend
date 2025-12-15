@@ -2,6 +2,7 @@
 知识库 API 端点
 """
 import asyncio
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -30,22 +31,25 @@ async def process_knowledge_base_files_background(
         knowledge_base_id: 知识库 ID
         db: 数据库会话
     """
+    from src.crud import knowledge_base as kb_crud
+    from src.crud import knowledge_base_file as kb_file_crud
+    
     try:
         # 1. 更新知识库状态为 CHUNKING
-        from src.crud import knowledge_base as kb_crud
-        kb = await kb_crud.get_knowledge_base_by_id(db, knowledge_base_id)
+        kb = await kb_crud.update_knowledge_base_status(
+            db, 
+            knowledge_base_id, 
+            KnowledgeBaseStatus.CHUNKING
+        )
         if not kb:
             return
         
-        kb.status = KnowledgeBaseStatus.CHUNKING.value
-        await db.commit()
-        
         # 2. 获取所有文件
-        from src.crud import knowledge_base_file as kb_file_crud
         files = await kb_file_crud.get_files_by_knowledge_base(db, knowledge_base_id)
         
         # 3. 对每个文件进行 chunk 和 embed
         rag_service = get_rag_service()
+        file_list = []
         
         for file in files:
             try:
@@ -58,26 +62,37 @@ async def process_knowledge_base_files_background(
                     file_name=file.file_name
                 )
                 print(f"文件 {file.file_name} 处理完成: {result.chunk_count} 个分块")
+                
+                # 收集文件信息
+                file_list.append({
+                    "file_id": file.id,
+                    "file_name": file.file_name
+                })
             except Exception as e:
                 print(f"文件 {file.file_name} 处理失败: {str(e)}")
                 continue
         
-        # 4. 更新知识库状态为 PUBLISHED
-        kb.status = KnowledgeBaseStatus.PUBLISHED.value
-        await db.commit()
+        # 4. 更新知识库的文件列表
+        await kb_crud.update_knowledge_base_file_list(db, knowledge_base_id, file_list)
+        
+        # 5. 更新知识库状态为 PUBLISHED
+        await kb_crud.update_knowledge_base_status(
+            db,
+            knowledge_base_id,
+            KnowledgeBaseStatus.PUBLISHED
+        )
         
         print(f"知识库 {knowledge_base_id} 处理完成")
         
     except Exception as e:
         print(f"知识库 {knowledge_base_id} 处理失败: {str(e)}")
-        # 更新状态为错误（需要先添加错误状态）
+        # 更新状态为错误（暂时设置回 UPLOADING，后续可以添加 ERROR 状态）
         try:
-            from src.crud import knowledge_base as kb_crud
-            kb = await kb_crud.get_knowledge_base_by_id(db, knowledge_base_id)
-            if kb:
-                # 暂时设置回 UPLOADING，后续可以添加 ERROR 状态
-                kb.status = KnowledgeBaseStatus.UPLOADING.value
-                await db.commit()
+            await kb_crud.update_knowledge_base_status(
+                db,
+                knowledge_base_id,
+                KnowledgeBaseStatus.UPLOADING
+            )
         except Exception:
             pass
 
@@ -99,6 +114,8 @@ async def create_knowledge_base(
     3. 保存文件到磁盘和数据库
     4. 启动后台任务：chunk + embed（更新状态：CHUNKING -> PUBLISHED）
     """
+    from src.crud import knowledge_base as kb_crud
+    
     # 1. 验证文件数量
     if not files or len(files) == 0:
         raise HTTPException(status_code=400, detail="至少需要上传一个文件")
@@ -107,15 +124,14 @@ async def create_knowledge_base(
         raise HTTPException(status_code=400, detail="最多只能上传 20 个文件")
     
     # 2. 创建知识库记录
-    knowledge_base = KnowledgeBase(
+    knowledge_base_obj = KnowledgeBase(
         name=name,
         description=description,
         user_id=user_id,
-        status=KnowledgeBaseStatus.UPLOADING.value
+        status=KnowledgeBaseStatus.UPLOADING.value,
+        file_list=[]
     )
-    db.add(knowledge_base)
-    await db.commit()
-    await db.refresh(knowledge_base)
+    knowledge_base = await kb_crud.create_knowledge_base(db, knowledge_base_obj)
     
     # 3. 保存文件
     file_service = KnowledgeBaseFileService(db)
@@ -123,8 +139,7 @@ async def create_knowledge_base(
     
     # 4. 如果所有文件都失败，删除知识库
     if not saved_files:
-        await db.delete(knowledge_base)
-        await db.commit()
+        await kb_crud.delete_knowledge_base(db, knowledge_base.id)
         raise HTTPException(
             status_code=400,
             detail=f"所有文件保存失败: {'; '.join(errors)}"
@@ -155,9 +170,38 @@ async def create_knowledge_base(
             "name": knowledge_base.name,
             "description": knowledge_base.description,
             "status": knowledge_base.status,
-            "saved_files_count": len(saved_files),
-            "failed_files": errors if errors else None
+            "created_at": datetime.now(),
+            "updated_at": datetime.now(),
         }
+    )
+
+
+@router.get("/list", response_model=APIResponse)
+async def list_knowledge_bases(
+    user_id: int = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取用户的所有知识库列表"""
+    from src.crud import knowledge_base as kb_crud
+    
+    kbs = await kb_crud.get_knowledge_bases_by_user(db, user_id)
+    
+    return APIResponse(
+        retcode=0,
+        message="success",
+        data={
+            "knowledge_bases": [
+                {
+                    "id": kb.id,
+                    "name": kb.name,
+                    "description": kb.description,
+                    "status": kb.status,
+                    "created_at": kb.created_at.isoformat(),
+                    "updated_at": kb.updated_at.isoformat()
+                }
+                for kb in kbs
+            ],            
+        },
     )
 
 
@@ -193,16 +237,6 @@ async def get_knowledge_base(
             "status": kb.status,
             "created_at": kb.created_at.isoformat(),
             "updated_at": kb.updated_at.isoformat(),
-            "files": [
-                {
-                    "id": f.id,
-                    "name": f.file_name,
-                    "type": f.file_type,
-                    "size": f.file_size,
-                    "created_at": f.created_at.isoformat()
-                }
-                for f in files
-            ]
         }
     )
 
@@ -240,30 +274,3 @@ async def delete_knowledge_base(
         raise HTTPException(status_code=500, detail="删除知识库失败")
     
     return APIResponse(retcode=0, message="知识库删除成功", data=None)
-
-
-@router.get("/list", response_model=APIResponse)
-async def list_knowledge_bases(
-    user_id: int = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """获取用户的所有知识库列表"""
-    from src.crud import knowledge_base as kb_crud
-    
-    kbs = await kb_crud.get_knowledge_bases_by_user(db, user_id)
-    
-    return APIResponse(
-        retcode=0,
-        message="success",
-        data=[
-            {
-                "id": kb.id,
-                "name": kb.name,
-                "description": kb.description,
-                "status": kb.status,
-                "created_at": kb.created_at.isoformat(),
-                "updated_at": kb.updated_at.isoformat()
-            }
-            for kb in kbs
-        ]
-    )

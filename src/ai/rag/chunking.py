@@ -5,7 +5,14 @@ from pathlib import Path
 from typing import List, Optional
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, UnstructuredPowerPointLoader
+from langchain_community.document_loaders import (
+    PyPDFLoader, 
+    Docx2txtLoader, 
+    UnstructuredPowerPointLoader,
+    TextLoader,
+    UnstructuredMarkdownLoader,
+    JSONLoader
+)
 
 
 class FileChunker():
@@ -20,14 +27,28 @@ class FileChunker():
     def _load_document(self, doc_path: Path) -> List[Document]:
         """根据文件类型加载文档"""
         file_suffix = doc_path.suffix.lower()
+        
         if file_suffix == '.pdf':
             loader = PyPDFLoader(str(doc_path))
         elif file_suffix == '.docx':
             loader = Docx2txtLoader(str(doc_path))
         elif file_suffix == '.pptx':
             loader = UnstructuredPowerPointLoader(str(doc_path))
+        elif file_suffix == '.txt':
+            loader = TextLoader(str(doc_path), encoding='utf-8')
+        elif file_suffix == '.md':
+            loader = UnstructuredMarkdownLoader(str(doc_path))
+        elif file_suffix == '.json':
+            # JSONLoader 需要指定 jq_schema 来提取内容
+            # 这里使用 '.' 表示提取整个 JSON
+            loader = JSONLoader(
+                file_path=str(doc_path),
+                jq_schema='.',
+                text_content=False
+            )
         else:
             raise ValueError(f'不支持的文件类型: {file_suffix}')
+        
         return loader.load()
 
     def split_conversation_file(
