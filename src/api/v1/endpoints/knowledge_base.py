@@ -204,44 +204,7 @@ async def list_knowledge_bases(
         },
     )
 
-
-@router.get("/{knowledge_base_id}", response_model=APIResponse)
-async def get_knowledge_base(
-    knowledge_base_id: int,
-    user_id: int = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """获取知识库详情"""
-    from src.crud import knowledge_base as kb_crud
-    from src.crud import knowledge_base_file as kb_file_crud
-    
-    # 获取知识库
-    kb = await kb_crud.get_knowledge_base_by_id(db, knowledge_base_id)
-    if not kb:
-        raise HTTPException(status_code=404, detail="知识库不存在")
-    
-    # 验证权限
-    if kb.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权访问此知识库")
-    
-    # 获取文件列表
-    files = await kb_file_crud.get_files_by_knowledge_base(db, knowledge_base_id)
-    
-    return APIResponse(
-        retcode=0,
-        message="success",
-        data={
-            "id": kb.id,
-            "name": kb.name,
-            "description": kb.description,
-            "status": kb.status,
-            "created_at": kb.created_at.isoformat(),
-            "updated_at": kb.updated_at.isoformat(),
-        }
-    )
-
-
-@router.delete("/{knowledge_base_id}", response_model=APIResponse)
+@router.get("/delete/{knowledge_base_id}", response_model=APIResponse)
 async def delete_knowledge_base(
     knowledge_base_id: int,
     user_id: int = Depends(get_current_user),
@@ -253,11 +216,11 @@ async def delete_knowledge_base(
     # 获取知识库
     kb = await kb_crud.get_knowledge_base_by_id(db, knowledge_base_id)
     if not kb:
-        raise HTTPException(status_code=404, detail="知识库不存在")
+        return APIResponse(retcode=404, message="知识库不存在", data=None)
     
     # 验证权限
     if kb.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权删除此知识库")
+        return APIResponse(retcode=403, message="无权删除此知识库", data=None)
     
     # 删除文件
     file_service = KnowledgeBaseFileService(db)
@@ -271,6 +234,6 @@ async def delete_knowledge_base(
     success = await kb_crud.delete_knowledge_base(db, knowledge_base_id)
     
     if not success:
-        raise HTTPException(status_code=500, detail="删除知识库失败")
+        return APIResponse(retcode=500, message="删除知识库失败", data=None)
     
-    return APIResponse(retcode=0, message="知识库删除成功", data=None)
+    return APIResponse(retcode=0, message="success", data=None)
