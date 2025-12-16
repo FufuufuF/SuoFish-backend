@@ -146,41 +146,29 @@ class DocumentRetriever(BaseRetriever):
             for doc, distance, metadata in results
         ]
     
-    def retrieve_with_knowledge_base(
+    def retrieve_by_knowledge_base(
         self,
         query: str,
-        conversation_id: int,
-        knowledge_base_ids: Optional[List[int]] = None,
+        knowledge_base_ids: List[int],
         top_k: int = 5
     ) -> List[RetrievalResult]:
         """
-        同时检索会话文件和知识库
+        在指定知识库范围内检索
         
         Args:
             query: 查询文本
-            conversation_id: 会话 ID
-            knowledge_base_ids: 知识库 ID 列表，None 表示不检索知识库
+            knowledge_base_ids: 知识库 ID 列表
             top_k: 返回的最大结果数量
         """
         query_vector = self._embedding.embed_text(query)
         
-        # 构建查询条件
-        if knowledge_base_ids:
-            # 检索会话文件 + 指定知识库
-            where = {
-                "$or": [
-                    {"conversation_id": conversation_id},
-                    {
-                        "$and": [
-                            {"source_type": "knowledge_base"},
-                            {"knowledge_base_id": {"$in": knowledge_base_ids}}
-                        ]
-                    }
-                ]
-            }
-        else:
-            # 只检索会话文件
-            where = {"conversation_id": conversation_id}
+        # 构建查询条件：只检索指定的知识库
+        where = {
+            "$and": [
+                {"source_type": "knowledge_base"},
+                {"knowledge_base_id": {"$in": knowledge_base_ids}}
+            ]
+        }
         
         results = self._vector_store.search_with_filter(query_vector, where=where, top_k=top_k)
         

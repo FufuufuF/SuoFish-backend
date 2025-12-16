@@ -136,24 +136,22 @@ class RAGService:
         """
         return self._retriever.retrieve_by_conversation(query, conversation_id, top_k)
 
-    def retrieve_with_knowledge_base(
+    def retrieve_by_knowledge_base(
         self,
         query: str,
-        conversation_id: int,
-        knowledge_base_ids: Optional[List[int]] = None,
+        knowledge_base_ids: List[int],
         top_k: int = 5
     ) -> List[RetrievalResult]:
         """
-        同时检索会话文件和知识库
+        在指定知识库范围内检索（纯知识库 RAG）
         
         Args:
             query: 查询文本
-            conversation_id: 会话 ID
-            knowledge_base_ids: 知识库 ID 列表，None 表示不检索知识库
+            knowledge_base_ids: 知识库 ID 列表
             top_k: 返回的最大结果数量
         """
-        return self._retriever.retrieve_with_knowledge_base(
-            query, conversation_id, knowledge_base_ids, top_k
+        return self._retriever.retrieve_by_knowledge_base(
+            query, knowledge_base_ids, top_k
         )
 
     def format_context(

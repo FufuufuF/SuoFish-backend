@@ -191,36 +191,54 @@ class ChatService:
                 conversation_files = await get_files_by_conversation(self.db, conversation_id)
                 file_names = [f.file_name for f in conversation_files]
             
-            # RAG 检索（如果有会话 ID）
+            # RAG 检索：根据参数决定检索范围
+            rag_results = []
+            
+            # 1. 检索会话文件
             if conversation_id:
-                rag_results = self.rag_service.retrieve_with_knowledge_base(
+                conversation_results = self.rag_service.retrieve_by_conversation(
                     query=user_message,
                     conversation_id=conversation_id,
+                    top_k=RAG_TOP_K
+                )
+                rag_results.extend(conversation_results)
+            
+            # 2. 检索知识库
+            if knowledge_base_ids:
+                kb_results = self.rag_service.retrieve_by_knowledge_base(
+                    query=user_message,
                     knowledge_base_ids=knowledge_base_ids,
                     top_k=RAG_TOP_K
                 )
+                rag_results.extend(kb_results)
+            
+            # 3. 如果有检索结果，按分数排序并限制数量
+            if rag_results:
+                # 按相似度分数降序排序
+                rag_results = sorted(rag_results, key=lambda x: x.score, reverse=True)
+                # 限制最终结果数量
+                rag_results = rag_results[:RAG_TOP_K]
                 
-                if rag_results:
-                    # 返回 RAG 检索结果给前端
-                    rag_results_data = {
-                        "count": len(rag_results),
-                        "results": [
-                            {
-                                "content": r.content[:200] + "..." if len(r.content) > 200 else r.content,
-                                "score": round(r.score, 4),
-                                "source_type": r.metadata.get("source_type", "unknown"),
-                                "file_id": r.metadata.get("file_id"),
-                                "file_name": r.metadata.get("file_name"),
-                                "knowledge_base_id": r.metadata.get("knowledge_base_id"),
-                                "page": r.metadata.get("page"),
-                            }
-                            for r in rag_results
-                        ]
-                    }
-                    yield f'{{"rag_results": {json.dumps(rag_results_data, ensure_ascii=False)}}}\n'
-                    
-                    # 格式化为 LLM 上下文
-                    rag_context = self.rag_service.format_context(rag_results)
+                # 返回 RAG 检索结果给前端
+                rag_results_data = {
+                    "count": len(rag_results),
+                    "results": [
+                        {
+                            "content": r.content[:200] + "..." if len(r.content) > 200 else r.content,
+                            "score": round(r.score, 4),
+                            "source_type": r.metadata.get("source_type", "unknown"),
+                            "file_id": r.metadata.get("file_id"),
+                            "file_name": r.metadata.get("file_name"),
+                            "knowledge_base_id": r.metadata.get("knowledge_base_id"),
+                            "page": r.metadata.get("page"),
+                        }
+                        for r in rag_results
+                    ]
+                }
+                yield f'{{"rag_results": {json.dumps(rag_results_data, ensure_ascii=False)}}}\n'
+                
+                # 格式化为 LLM 上下文
+                rag_context = self.rag_service.format_context(rag_results)
             
             # 构建系统提示词（包含摘要、RAG 上下文和文件列表）
             system_prompt = self._build_system_prompt(summary, rag_context, file_names)
