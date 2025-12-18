@@ -5,7 +5,7 @@ from typing import List, Union
 
 class CORSSettings(BaseSettings):
     """CORS 跨域配置"""
-    origins: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    origins: List[str] = ["http://localhost:5174", "http://localhost:5173"]
     allow_credentials: bool = True
     allow_methods: List[str] = ["*"]
     allow_headers: List[str] = ["*"]

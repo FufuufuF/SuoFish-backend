@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.v1.api import router as v1_router
 from src.db.session import Base, engine
+import src.db.models as models
 from src.core.config import cors as cors_config
 
 

@@ -17,6 +17,11 @@ from src.crud.conversation import (
     get_conversation_by_id,
 )
 from src.crud.conversation_file import get_files_by_conversation
+from src.crud.conversation_log import (
+    get_or_create_log_session,
+    create_log_round,
+    update_log_session_stats,
+)
 from src.db.models.conversation import Conversation
 from src.db.models.message import Message
 from src.schemas.chat import ChatMetadata
@@ -134,6 +139,12 @@ class ChatService:
         existing_conversation = None
         summary = None
         
+        # 日志收集变量
+        files_result_data = None
+        rag_results_data = None
+        error_message = None
+        save_error_message = None
+        
         # 验证会话
         if conversation_id:
             existing_conversation, error = await self.validate_conversation(conversation_id, user_id)
@@ -168,6 +179,7 @@ class ChatService:
                     ],
                     "errors": file_errors
                 }
+                files_result_data = files_result  # 保存到日志变量
                 yield f'{{"files": {json.dumps(files_result)}}}\n'
                 
                 # 对上传的文件进行嵌入处理
@@ -234,7 +246,7 @@ class ChatService:
                         }
                         for r in rag_results
                     ]
-                }
+                }  # rag_results_data 已经保存到日志变量了
                 yield f'{{"rag_results": {json.dumps(rag_results_data, ensure_ascii=False)}}}\n'
                 
                 # 格式化为 LLM 上下文
@@ -252,7 +264,8 @@ class ChatService:
                 llm_response_content += token
                 yield f'{{"token": {json.dumps(token)}}}\n'
         except Exception as e:
-            yield f'{{"error": {json.dumps(str(e))}}}\n'
+            error_message = str(e)  # 保存错误信息到日志变量
+            yield f'{{"error": {json.dumps(error_message)}}}\n'
         finally:
             try:
                 # 确定会话（如果还没创建）
@@ -280,7 +293,45 @@ class ChatService:
                 )
                 yield f'{{"metadata": {metadata.model_dump_json()}}}\n'
             except Exception as save_error:
-                yield f'{{"save_error": {json.dumps(str(save_error))}}}\n'
+                save_error_message = str(save_error)  # 保存到日志变量
+                yield f'{{"save_error": {json.dumps(save_error_message)}}}\n'
+            
+            # 保存对话日志（无论成功失败都要保存）
+            try:
+                if conversation_id and llm_response_content:  # 只有当有完整对话时才保存
+                    # 1. 获取或创建日志会话
+                    log_session = await get_or_create_log_session(
+                        self.db,
+                        conversation_id=conversation_id,
+                        user_id=user_id
+                    )
+                    
+                    # 2. 计算轮次号（当前轮次数 + 1）
+                    round_number = log_session.total_rounds + 1
+                    
+                    # 3. 创建日志轮次
+                    await create_log_round(
+                        self.db,
+                        session_id=log_session.id,
+                        round_number=round_number,
+                        user_message=user_message,
+                        assistant_message=llm_response_content,
+                        files_result=files_result_data,
+                        rag_results=rag_results_data,
+                        error=error_message,
+                        save_error=save_error_message
+                    )
+                    
+                    # 4. 更新统计信息
+                    has_error = bool(error_message or save_error_message)
+                    await update_log_session_stats(
+                        self.db,
+                        session_id=log_session.id,
+                        has_error=has_error
+                    )
+            except Exception as log_error:
+                # 日志保存失败不应该影响主流程，只打印错误
+                print(f"Failed to save conversation log: {log_error}")
     
     def _build_system_prompt(
         self, 
