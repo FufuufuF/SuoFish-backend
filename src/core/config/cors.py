@@ -1,14 +1,14 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
-from typing import List, Union
+from typing import Any, List, Union
 
 
 class CORSSettings(BaseSettings):
     """CORS 跨域配置"""
-    origins: List[str] = ["http://localhost:5174", "http://localhost:5173"]
+    origins: Any = ["http://localhost:5174", "http://localhost:5173"]
     allow_credentials: bool = True
-    allow_methods: List[str] = ["*"]
-    allow_headers: List[str] = ["*"]
+    allow_methods: Any = ["*"]
+    allow_headers: Any = ["*"]
     
     model_config = SettingsConfigDict(
         env_prefix="CORS_",
