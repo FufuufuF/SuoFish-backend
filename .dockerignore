@@ -1,0 +1,54 @@
+# --- Python 虚拟环境 ---
+# 必须排除，因为 Windows/WSL 的环境在容器里不可用
+.venv/
+venv/
+env/
+ENV/
+
+# --- Python 缓存与编译文件 ---
+# 这些是 Python 运行时生成的临时文件，没必要打包
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# --- 构建工具与包管理器缓存 ---
+# uv 的缓存和本地构建产物
+.uv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+
+# --- 敏感信息与配置 ---
+# 不要把本地的密钥文件拷进去，应该通过 Docker 环境变量注入
+.env
+.flaskenv
+*.secret
+api_key.txt
+
+# --- 数据库文件 ---
+# 防止把本地测试用的数据库存拷贝进镜像
+*.db
+*.sqlite3
+
+# --- 操作系统垃圾文件 ---
+.DS_Store
+Thumbs.db
+
+# --- 项目文档与 Git ---
+# 镜像运行不需要 Git 历史，排除它可以减小几百 MB 体积
+.git/
+.gitignore
+README.md
+LICENSE

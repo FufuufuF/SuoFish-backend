@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  # --- 数据库服务 ---
+  db:
+    image: mysql:8.0
+    container_name: chatbot_mysql
+    restart: always
+    # 加载 .env 文件
+    env_file:
+      - .env
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # --- FastAPI 后端服务 ---
+  backend:
+    build: .
+    container_name: chatbot_backend
+    depends_on:
+      - db
+    ports:
+      - "8000:8080" # 宿主机 8000 -> 容器 8080
+    # 加载 .env 文件
+    env_file:
+      - .env
+    environment:
+      # 覆盖 .env 中的 DB_HOST，容器内为了连接 db 服务必须使用服务名
+      DB_HOST: db
+
+volumes:
+  mysql_data:
