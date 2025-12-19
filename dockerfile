@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 8080
 
 # --- 第七阶段：启动程序 ---
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
