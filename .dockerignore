@@ -41,6 +41,8 @@ api_key.txt
 # 防止把本地测试用的数据库存拷贝进镜像
 *.db
 *.sqlite3
+# 向量数据库数据（应由 Docker Volume 管理）
+chroma_data/
 
 # --- 操作系统垃圾文件 ---
 .DS_Store

@@ -29,5 +29,10 @@ services:
       # 覆盖 .env 中的 DB_HOST，容器内为了连接 db 服务必须使用服务名
       DB_HOST: db
 
+    volumes:
+      # 持久化向量数据库数据
+      - chroma_data:/app/chroma_data
+
 volumes:
   mysql_data:
+  chroma_data:
