@@ -20,8 +20,12 @@ class ChatModel(BaseLLM):
                 model=model_config.model_name,
             )
         else:
+            # check if env config is valid
+            if not llm_config.api_key:
+                raise ValueError("No LLM configuration found. Please configure a model in settings or provide environment variables.")
+                
             self.client = ChatOpenAI(
-                api_key=llm_config.api_key,
+                api_key=llm_config.api_key,  # type: ignore
                 base_url=llm_config.base_url,
                 model=llm_config.model_name,
             )

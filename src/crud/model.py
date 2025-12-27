@@ -80,9 +80,20 @@ async def delete_model_config(db: AsyncSession, id: int) -> bool:
     Returns:
         删除成功返回 True，配置不存在返回 False
     """
+    # 避免循环导入
+    from src.db.models.user import User
+    from sqlalchemy import update
+
     model_config = await get_model_config_by_id(db, id)
     if not model_config:
         return False
+    
+    # 在删除模型配置之前，先将引用该配置的用户的 default_model_config_id 设置为 None
+    await db.execute(
+        update(User)
+        .where(User.default_model_config_id == id)
+        .values(default_model_config_id=None)
+    )
     
     await db.delete(model_config)
     await db.commit()
