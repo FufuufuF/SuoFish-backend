@@ -11,12 +11,6 @@ from src.utils.authentic import create_access_token, get_current_user
 
 router = APIRouter()
 
-# 用于挂载到不同前缀的子路由
-sign_up_router = APIRouter()
-sign_in_router = APIRouter()
-verify_router = APIRouter()
-
-
 async def verify_password(db: AsyncSession, email: str, login_password: str) -> bool:
     hashed_password = await get_user_hash_password(db, email)
     if not hashed_password:
@@ -24,7 +18,7 @@ async def verify_password(db: AsyncSession, email: str, login_password: str) -> 
     return bcrypt.checkpw(login_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
-@sign_up_router.post("/")
+@router.post("/sign-up")
 async def sign_up(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
     user = await get_user_by_email(db, user_data.email)
     if user:
@@ -35,7 +29,7 @@ async def sign_up(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
     return APIResponse(retcode=0, message="success")
 
 
-@sign_in_router.post("/")
+@router.post("/sign-in")
 async def sign_in(login_data: UserLogin, response: Response, db: AsyncSession = Depends(get_db)):
     user = await get_user_by_email(db, login_data.email)
     if not user:
@@ -55,9 +49,13 @@ async def sign_in(login_data: UserLogin, response: Response, db: AsyncSession = 
     )
     return APIResponse(retcode=0, message="success", data={"user_id": str(user.id)})
 
+@router.get("/sign-out")
+async def sign_out(response: Response):
+    response.delete_cookie(key="access_token")
+    return APIResponse(retcode=0, message="success")
 
-@verify_router.get("/")
-async def verify(response: Response, user_id: str = Depends(get_current_user)):
+@router.get("/")
+async def auth(response: Response, user_id: str = Depends(get_current_user)):
     try:
         # 使用 get_current_user 验证 token
         print(user_id)
