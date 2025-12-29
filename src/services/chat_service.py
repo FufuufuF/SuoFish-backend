@@ -42,9 +42,10 @@ class ChatService:
     
     def __init__(self, db: AsyncSession, model_config: Optional[ModelConfig] = None):
         self.db = db
+        self.model_config = model_config
         self.chat_model = ChatModel(model_config=model_config)
         self.file_service = ConversationFileService(db)
-        self.rag_service: RAGService = get_rag_service()
+        self.rag_service: RAGService = get_rag_service(model_config=model_config)
     
     async def trigger_summary_generation(self, conversation_id: int):
         """后台任务：生成对话摘要并保存"""
@@ -54,7 +55,7 @@ class ChatService:
                 if not all_messages:
                     return
                 
-                chat_model = ChatModel()
+                chat_model = ChatModel(model_config=self.model_config)
                 summary = await chat_model.generate_summary(all_messages)
                 
                 await update_conversation_summary(db, conversation_id, summary)

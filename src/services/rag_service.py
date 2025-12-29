@@ -2,13 +2,16 @@
 RAG 服务 - 提供文件嵌入和检索的统一接口
 """
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from dataclasses import dataclass
 
 from src.ai.rag.chunking import FileChunker
 from src.ai.rag.embedding import Embedding
 from src.ai.rag.vector_store import get_vector_store
 from src.ai.rag.retriever import RetrievalResult, get_retriever
+
+if TYPE_CHECKING:
+    from src.db.models.model_config import ModelConfig
 
 
 @dataclass
@@ -22,9 +25,26 @@ class EmbedResult:
 class RAGService:
     """RAG 服务：负责文件嵌入和检索"""
 
-    def __init__(self):
+    def __init__(self, model_config: Optional["ModelConfig"] = None):
+        """
+        初始化 RAG 服务
+        
+        Args:
+            model_config: 模型配置，包含 API key 和 base_url 等信息。
+                         如果未提供，将从环境变量读取配置。
+        """
         self._chunker = FileChunker()
-        self._embedding = Embedding()
+        
+        # 如果提供了 model_config，使用其中的配置初始化 Embedding
+        if model_config:
+            self._embedding = Embedding(
+                api_key=model_config.api_key,
+                base_url=model_config.base_url,
+                # model_name 使用环境变量中的 embedding 模型配置，因为 model_config 是 LLM 配置
+            )
+        else:
+            self._embedding = Embedding()
+        
         self._vector_store = get_vector_store()
         self._retriever = get_retriever(self._embedding, self._vector_store)
 
@@ -205,12 +225,26 @@ class RAGService:
         return self._vector_store.count()
 
 
-# 便捷函数：获取 RAG 服务单例
+# 便捷函数：获取 RAG 服务
 _rag_service_instance: Optional[RAGService] = None
 
 
-def get_rag_service() -> RAGService:
-    """获取 RAG 服务实例（单例）"""
+def get_rag_service(model_config: Optional["ModelConfig"] = None) -> RAGService:
+    """
+    获取 RAG 服务实例
+    
+    Args:
+        model_config: 模型配置。如果提供，将创建使用该配置的新实例；
+                     如果未提供，将返回使用环境变量配置的单例实例。
+    
+    Returns:
+        RAGService 实例
+    """
+    # 如果提供了 model_config，每次都创建新实例（因为不同用户可能有不同的配置）
+    if model_config:
+        return RAGService(model_config=model_config)
+    
+    # 否则使用全局单例
     global _rag_service_instance
     if _rag_service_instance is None:
         _rag_service_instance = RAGService()
